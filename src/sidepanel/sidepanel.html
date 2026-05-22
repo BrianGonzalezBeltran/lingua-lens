@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="ll-panel">
+    <header class="ll-panel-header">
+      <h1 class="ll-panel-title">🔍 LinguaLens</h1>
+      <nav class="ll-tabs">
+        <button class="ll-tab ll-tab-active" data-tab="transcript">Transcripción</button>
+        <button class="ll-tab" data-tab="vocabulary">Vocabulario</button>
+      </nav>
+    </header>
+    <section class="ll-tab-content ll-tab-visible" id="tab-transcript">
+      <div class="ll-transcript-toolbar" id="ll-transcript-toolbar" style="display:none">
+        <span class="ll-transcript-count" id="ll-transcript-count"></span>
+        <div class="ll-transcript-toolbar-btns">
+          <button class="ll-transcript-autoscroll ll-autoscroll-on" id="ll-transcript-autoscroll" title="Auto-scroll">⬇ Auto</button>
+          <button class="ll-transcript-clear" id="ll-transcript-clear">🗑 Limpiar</button>
+        </div>
+      </div>
+      <div class="ll-transcript-list" id="ll-transcript">
+        <p class="ll-empty-state">Activa subtítulos duales para ver la transcripción aquí.</p>
+      </div>
+    </section>
+    <section class="ll-tab-content" id="tab-vocabulary">
+      <div class="ll-vocab-controls">
+        <input type="text" class="ll-search" id="ll-vocab-search" placeholder="Buscar...">
+        <div class="ll-export-btns">
+          <button class="ll-export-btn" id="ll-export-csv">📄 CSV</button>
+          <button class="ll-export-btn" id="ll-export-anki">🃏 Anki</button>
+        </div>
+      </div>
+      <div class="ll-vocab-list" id="ll-vocab-list">
+        <p class="ll-empty-state">Guarda palabras con ⭐ para verlas aquí.</p>
+      </div>
+    </section>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

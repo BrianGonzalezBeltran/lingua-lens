@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <div class="ll-popup-container">
+    <div class="ll-header">
+      <div class="ll-logo"><span class="ll-logo-icon">🔍</span><span class="ll-logo-text">LinguaLens</span></div>
+      <span class="ll-version">v0.1</span>
+    </div>
+    <div class="ll-status">
+      <span class="ll-status-dot ll-status-inactive" id="ll-status-dot"></span>
+      <span id="ll-status-text">No estás en un video de YouTube</span>
+    </div>
+    <div class="ll-section">
+      <label class="ll-label">Estoy aprendiendo</label>
+      <select class="ll-select" id="ll-target-lang"><option value="">— Selecciona —</option></select>
+    </div>
+    <div class="ll-section">
+      <label class="ll-label">Mi idioma nativo</label>
+      <select class="ll-select" id="ll-native-lang">
+        <option value="">— Selecciona —</option>
+        <option value="es" selected>Español</option>
+        <option value="en">English</option>
+        <option value="fr">Français</option>
+        <option value="pt">Português</option>
+        <option value="de">Deutsch</option>
+        <option value="it">Italiano</option>
+        <option value="ja">日本語</option>
+        <option value="ko">한국어</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+    <button class="ll-activate" id="ll-activate" disabled>Activar subtítulos duales</button>
+    <div class="ll-actions">
+      <button class="ll-action-btn" id="ll-toggle-subs">👁 Toggle</button>
+      <button class="ll-action-btn" id="ll-open-vocab">📚 Vocab</button>
+    </div>
+    <div class="ll-stats" id="ll-stats" style="display:none">📊 <strong id="ll-word-count">0</strong> palabras guardadas</div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

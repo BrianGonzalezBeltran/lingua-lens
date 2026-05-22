@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "LinguaLens",
+  "version": "0.1.0",
+  "description": "Learn languages while watching YouTube — dual subtitles, instant translations, and AI-powered explanations.",
+  "permissions": ["storage", "sidePanel", "activeTab"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": [
+        "src/content/caption-interceptor.js",
+        "src/content/dual-subtitles.js",
+        "src/content/word-popup.js",
+        "src/content/main.js"
+      ],
+      "css": ["src/styles/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "src/icons/icon-16.png",
+      "48": "src/icons/icon-48.png",
+      "128": "src/icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "src/icons/icon-16.png",
+    "48": "src/icons/icon-48.png",
+    "128": "src/icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/content/page-script.js"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ]
+}
