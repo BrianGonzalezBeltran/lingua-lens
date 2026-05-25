@@ -4,6 +4,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const activateBtn = document.getElementById('ll-activate');
   const statusDot = document.getElementById('ll-status-dot');
   const statusText = document.getElementById('ll-status-text');
+  const apiKeyInput = document.getElementById('ll-api-key');
+  const apiSaveBtn = document.getElementById('ll-api-save');
+  const apiStatus = document.getElementById('ll-api-status');
+
+  // Check API key status
+  chrome.runtime.sendMessage({ type: 'CHECK_API_KEY' }, res => {
+    if (res?.hasKey) {
+      apiStatus.textContent = '✓ Configurada';
+      apiStatus.style.color = '#34d399';
+    } else {
+      apiStatus.textContent = 'No configurada — los subtítulos duales funcionan sin ella';
+      apiStatus.style.color = '#64748b';
+    }
+  });
+
+  apiSaveBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) return;
+    chrome.runtime.sendMessage({ type: 'SAVE_API_KEY', key }, res => {
+      if (res?.success) {
+        apiKeyInput.value = '';
+        apiStatus.textContent = '✓ Guardada';
+        apiStatus.style.color = '#34d399';
+      }
+    });
+  });
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url?.includes('youtube.com/watch')) {
@@ -63,12 +89,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('ll-open-vocab').addEventListener('click', () => {
     chrome.sidePanel.open({ windowId: tab.windowId });
-  });
-
-  chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, res => {
-    if (res?.vocabulary?.length) {
-      document.getElementById('ll-stats').style.display = 'block';
-      document.getElementById('ll-word-count').textContent = res.vocabulary.length;
-    }
   });
 });

@@ -5,7 +5,7 @@
   <div class="ll-popup-container">
     <div class="ll-header">
       <div class="ll-logo"><span class="ll-logo-icon">🔍</span><span class="ll-logo-text">LinguaLens</span></div>
-      <span class="ll-version">v0.1</span>
+      <span class="ll-version">v0.2</span>
     </div>
     <div class="ll-status">
       <span class="ll-status-dot ll-status-inactive" id="ll-status-dot"></span>
@@ -35,7 +35,15 @@
       <button class="ll-action-btn" id="ll-toggle-subs">👁 Toggle</button>
       <button class="ll-action-btn" id="ll-open-vocab">📚 Vocab</button>
     </div>
-    <div class="ll-stats" id="ll-stats" style="display:none">📊 <strong id="ll-word-count">0</strong> palabras guardadas</div>
+    <div class="ll-divider"></div>
+    <div class="ll-section ll-api-section">
+      <label class="ll-label">Groq API Key <span class="ll-label-hint">(opcional — para traducir palabras y AI)</span></label>
+      <div class="ll-api-row">
+        <input type="password" class="ll-api-input" id="ll-api-key" placeholder="gsk_...">
+        <button class="ll-api-save" id="ll-api-save">💾</button>
+      </div>
+      <span class="ll-api-status" id="ll-api-status"></span>
+    </div>
   </div>
   <script src="popup.js"></script>
 </body>

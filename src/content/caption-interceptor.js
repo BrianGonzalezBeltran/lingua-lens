@@ -1,7 +1,6 @@
 /**
  * caption-interceptor.js — ISOLATED world
- * Inyecta page-script.js en MAIN world, recibe captions del DOM vía postMessage.
- * Para el idioma nativo usa Groq traducción por frase.
+ * Receives full caption arrays from page-script, syncs by timestamp.
  */
 (function () {
   'use strict';
@@ -9,12 +8,13 @@
 
   window.__linguaLens = window.__linguaLens || {
     tracks: [],
-    activeCaptions: { target: [], native: [] },
     config: { targetLang: null, nativeLang: null },
     ready: false,
     listeners: [],
     currentCaption: { target: '', native: '', time: 0 },
-    translationCache: {},
+    _hoverPaused: false,
+    targetCaptions: [],
+    nativeCaptions: [],
   };
   const state = window.__linguaLens;
 
@@ -24,81 +24,115 @@
   s.onload = () => s.remove();
   (document.head || document.documentElement).appendChild(s);
 
-  async function translateSentence(text, targetLang, nativeLang) {
-    const cacheKey = `${targetLang}:${nativeLang}:${text}`;
-    if (state.translationCache[cacheKey]) return state.translationCache[cacheKey];
-
-    return new Promise(resolve => {
-      chrome.runtime.sendMessage({
-        type: 'TRANSLATE_SENTENCE',
-        text, targetLang, nativeLang,
-      }, res => {
-        const translation = res?.translation || '';
-        state.translationCache[cacheKey] = translation;
-        resolve(translation);
-      });
-    });
+  // Binary search for caption at time
+  function findAt(caps, ms) {
+    let lo = 0, hi = caps.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1, c = caps[mid];
+      if (ms < c.startMs) hi = mid - 1;
+      else if (ms > c.endMs) lo = mid + 1;
+      else return c;
+    }
+    return null;
   }
+
+  let syncRaf = null;
+  let lastTargetText = '', lastNativeText = '';
+
+  function startSync() {
+    stopSync();
+    const video = document.querySelector('video.html5-main-video');
+    if (!video) return;
+
+    function sync() {
+      const ms = video.currentTime * 1000;
+      const tc = findAt(state.targetCaptions, ms);
+      const nc = findAt(state.nativeCaptions, ms);
+      const targetText = tc?.text || '';
+      const nativeText = nc?.text || '';
+
+      if (targetText !== lastTargetText || nativeText !== lastNativeText) {
+        lastTargetText = targetText;
+        lastNativeText = nativeText;
+        state.currentCaption = { target: targetText, native: nativeText, time: video.currentTime };
+
+        state.listeners.forEach(fn => fn({
+          type: 'CAPTION_TEXT',
+          target: targetText,
+          native: nativeText,
+          time: video.currentTime,
+        }));
+
+        if (targetText) {
+          chrome.runtime.sendMessage({
+            type: 'CAPTION_FOR_PANEL',
+            target: targetText,
+            native: nativeText,
+            time: video.currentTime,
+          });
+        }
+      }
+      syncRaf = requestAnimationFrame(sync);
+    }
+    syncRaf = requestAnimationFrame(sync);
+  }
+
+  function stopSync() {
+    if (syncRaf) { cancelAnimationFrame(syncRaf); syncRaf = null; }
+    lastTargetText = lastNativeText = '';
+  }
+
+  // Wait for page-script to be ready (it posts TRACKS_AVAILABLE when init completes)
+  let pageScriptReady = false;
+  let pendingActivation = null;
 
   function activateDual(targetLang, nativeLang) {
     state.config = { targetLang, nativeLang };
-    state.ready = true;
-    state.translationCache = {};
     console.log(`[LL] Activating: target=${targetLang}, native=${nativeLang}`);
-    window.postMessage({ type: `${PREFIX}_SET_TRACK`, lang: targetLang }, '*');
-    state.listeners.forEach(fn => fn({ type: 'CAPTIONS_ACTIVATED' }));
+
+    if (pageScriptReady) {
+      window.postMessage({ type: `${PREFIX}_ACTIVATE`, targetLang, nativeLang }, '*');
+    } else {
+      // Queue activation until page-script is ready
+      pendingActivation = { targetLang, nativeLang };
+      console.log('[LL] Queued activation — waiting for page-script');
+    }
     return Promise.resolve();
   }
 
   state.activateDual = activateDual;
   state.onUpdate = fn => state.listeners.push(fn);
 
-  window.addEventListener('message', async (ev) => {
+  window.addEventListener('message', (ev) => {
     if (ev.source !== window) return;
 
     if (ev.data?.type === `${PREFIX}_TRACKS_AVAILABLE`) {
       state.tracks = ev.data.tracks;
+      pageScriptReady = true;
       console.log('[LL] Tracks:', state.tracks.map(t => `${t.languageName} (${t.languageCode})`));
       chrome.runtime.sendMessage({ type: 'TRACKS_AVAILABLE', tracks: state.tracks });
-      chrome.storage.sync.get(['targetLang', 'nativeLang'], c => {
-        if (c.targetLang && c.nativeLang) activateDual(c.targetLang, c.nativeLang);
-      });
-    }
 
-    if (ev.data?.type === `${PREFIX}_CAPTION_UPDATE`) {
-      const targetText = ev.data.text;
-      state.currentCaption.target = targetText;
-      state.currentCaption.time = ev.data.time;
-
-      // Notify dual-subtitles immediately with target text
-      state.listeners.forEach(fn => fn({
-        type: 'CAPTION_TEXT',
-        target: targetText,
-        native: '',
-        time: ev.data.time,
-      }));
-
-      // Translate to native language asynchronously
-      if (targetText && state.config.nativeLang) {
-        const native = await translateSentence(
-          targetText, state.config.targetLang, state.config.nativeLang
-        );
-        state.currentCaption.native = native;
-        state.listeners.forEach(fn => fn({
-          type: 'CAPTION_TEXT',
-          target: targetText,
-          native,
-          time: ev.data.time,
-        }));
-
-        // Send to sidepanel via background
-        chrome.runtime.sendMessage({
-          type: 'CAPTION_FOR_PANEL',
-          target: targetText,
-          native,
-          time: ev.data.time,
+      // If there's a pending activation, fire it now
+      if (pendingActivation) {
+        console.log('[LL] Firing queued activation');
+        window.postMessage({ type: `${PREFIX}_ACTIVATE`, ...pendingActivation }, '*');
+        pendingActivation = null;
+      } else {
+        // Check stored preferences
+        chrome.storage.sync.get(['targetLang', 'nativeLang'], c => {
+          if (c.targetLang && c.nativeLang) activateDual(c.targetLang, c.nativeLang);
         });
       }
+    }
+
+    if (ev.data?.type === `${PREFIX}_ALL_CAPTIONS`) {
+      state.targetCaptions = ev.data.target;
+      state.nativeCaptions = ev.data.native;
+      state.ready = true;
+      console.log(`[LL] Ready: ${ev.data.target.length} target + ${ev.data.native.length} native`);
+
+      state.listeners.forEach(fn => fn({ type: 'CAPTIONS_ACTIVATED' }));
+      startSync();
     }
   });
 
@@ -108,11 +142,7 @@
       return true;
     }
     if (msg.type === 'GET_TRACKS') respond({ tracks: state.tracks });
-    if (msg.type === 'GET_STATE') respond({
-      tracks: state.tracks, config: state.config, ready: state.ready,
-      targetCount: state.activeCaptions.target.length,
-      nativeCount: state.activeCaptions.native.length,
-    });
+    if (msg.type === 'GET_STATE') respond({ tracks: state.tracks, config: state.config, ready: state.ready });
     if (msg.type === 'SEEK_TO') {
       const v = document.querySelector('video.html5-main-video');
       if (v) v.currentTime = msg.timeMs / 1000;
