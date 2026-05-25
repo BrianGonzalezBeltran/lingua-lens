@@ -1,9 +1,7 @@
 /**
  * service-worker.js — Background (Manifest V3)
- * Groq API solo para features opcionales: traducir palabra y explicar con AI.
- * Los subtítulos nativos vienen de YouTube translationLanguage (sin API).
- *
- * API key se configura desde el popup y se guarda en chrome.storage.sync.
+ * Groq API for word translation, AI explanations with examples.
+ * Subtitles come from YouTube directly (no API needed).
  */
 const CONFIG = {
   GROQ_MODEL: 'llama-3.3-70b-versatile',
@@ -53,15 +51,25 @@ async function translate(word, context, tLang, nLang) {
 
 async function explain(word, context, tLang, nLang) {
   const result = await callGroq(
-    `Language tutor for ${tLang} learners who speak ${nLang}. Explain in ${nLang}:
-1. Translation in this context
-2. Grammar note if relevant
-3. One usage example
-Max 3-4 sentences. Warm but concise.`,
-    `Word: "${word}"\nSentence: "${context}"`,
-    300
+    `You are a language tutor helping a ${nLang} speaker learn ${tLang}. Respond in JSON format only, no markdown, no backticks. The JSON must have these fields:
+- "translation": the word's translation in this specific context (in ${nLang})
+- "grammar": a brief grammar note if relevant (part of speech, conjugation, etc.) in ${nLang}, or empty string if not needed
+- "examples": array of 2-3 example sentences using the word in ${tLang}, each with a "sentence" field (in ${tLang}) and a "translation" field (in ${nLang}). Choose examples that show common real-world usage at an intermediate level.
+- "tip": one short practical tip for remembering or using this word (in ${nLang}), or empty string`,
+    `Word: "${word}"\nSentence context: "${context}"`,
+    500
   );
-  return { explanation: result || 'Configura tu API key en el popup (gratis en console.groq.com)' };
+
+  try {
+    if (result) {
+      const parsed = JSON.parse(result);
+      return { explanation: parsed };
+    }
+  } catch (e) {
+    // If JSON parse fails, return as plain text
+    return { explanation: { translation: result, grammar: '', examples: [], tip: '' } };
+  }
+  return { explanation: null };
 }
 
 async function saveWord(data) {

@@ -1,11 +1,12 @@
 /**
  * word-popup.js
+ * Click on word → translation, AI explanation with examples, save to vocab.
  */
 (function () {
   'use strict';
   const state = window.__linguaLens;
   let popup, curWord = '', curCtx = '';
-  let shouldResumeOnClose = false;
+  let popupPausedVideo = false;
 
   function getVideo() { return document.querySelector('video.html5-main-video'); }
 
@@ -21,7 +22,9 @@
       </div>
       <div class="ll-popup-translation" id="ll-popup-translation"><span class="ll-popup-loading">Traduciendo...</span></div>
       <div class="ll-popup-context" id="ll-popup-context"></div>
-      <div class="ll-popup-ai" id="ll-popup-ai" style="display:none"><div class="ll-popup-ai-content" id="ll-popup-ai-content"></div></div>
+      <div class="ll-popup-ai" id="ll-popup-ai" style="display:none">
+        <div class="ll-popup-ai-content" id="ll-popup-ai-content"></div>
+      </div>
       <div class="ll-popup-actions">
         <button class="ll-popup-btn ll-btn-ai" id="ll-btn-ai">🧠 Explicar</button>
         <button class="ll-popup-btn ll-btn-save" id="ll-btn-save">⭐ Palabra</button>
@@ -37,17 +40,9 @@
   function show(word, ctx, el) {
     curWord = word; curCtx = ctx;
     const v = getVideo();
-    // Whether the video is playing OR was just paused by hover,
-    // we want to resume when the popup closes
     if (v) {
-      if (!v.paused) {
-        v.pause();
-        shouldResumeOnClose = true;
-      } else {
-        // Video already paused — was it by hover-pause or by user?
-        // If dual-subtitles hover-paused it, we should resume on close
-        shouldResumeOnClose = !!state._hoverPaused;
-      }
+      if (!v.paused) { v.pause(); popupPausedVideo = true; }
+      else { popupPausedVideo = !!state._hoverPaused; }
     }
 
     popup.querySelector('#ll-popup-word').textContent = word;
@@ -59,7 +54,7 @@
     const btnPhrase = popup.querySelector('#ll-btn-save-phrase');
     btnPhrase.textContent = '📝 Frase'; btnPhrase.disabled = false;
     const r = el.getBoundingClientRect();
-    let left = r.left + r.width/2 - 160, top = r.top - 240;
+    let left = r.left + r.width/2 - 160, top = r.top - 280;
     if (top < 10) top = r.bottom + 10;
     left = Math.max(10, Math.min(left, innerWidth - 330));
     popup.style.left = left + 'px'; popup.style.top = top + 'px';
@@ -68,28 +63,69 @@
     chrome.runtime.sendMessage({
       type: 'TRANSLATE_WORD', word, context: ctx,
       targetLang: state.config.targetLang, nativeLang: state.config.nativeLang,
-    }, res => { popup.querySelector('#ll-popup-translation').textContent = res?.translation || '(no disponible)'; });
+    }, res => {
+      popup.querySelector('#ll-popup-translation').textContent = res?.translation || '(no disponible)';
+    });
   }
 
   function hide() {
     popup?.classList.add('ll-popup-hidden');
-    if (shouldResumeOnClose) {
+    if (popupPausedVideo) {
       const v = getVideo();
       if (v) v.play();
-      shouldResumeOnClose = false;
-      // Clear hover-pause flag so dual-subtitles doesn't re-pause
+      popupPausedVideo = false;
       state._hoverPaused = false;
+      state._frozen = false;
     }
   }
 
+  function renderExplanation(data) {
+    const sec = popup.querySelector('#ll-popup-ai');
+    const con = popup.querySelector('#ll-popup-ai-content');
+    sec.style.display = 'block';
+
+    if (!data) {
+      con.textContent = 'Configura tu API key en el popup (gratis en console.groq.com)';
+      return;
+    }
+
+    let html = '';
+
+    if (data.translation) {
+      html += `<div class="ll-ai-translation"><strong>${data.translation}</strong></div>`;
+    }
+    if (data.grammar) {
+      html += `<div class="ll-ai-grammar">${data.grammar}</div>`;
+    }
+    if (data.examples?.length) {
+      html += '<div class="ll-ai-examples-label">Ejemplos:</div>';
+      html += '<div class="ll-ai-examples">';
+      data.examples.forEach(ex => {
+        html += `<div class="ll-ai-example">
+          <div class="ll-ai-example-sentence">${ex.sentence}</div>
+          <div class="ll-ai-example-translation">${ex.translation}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    if (data.tip) {
+      html += `<div class="ll-ai-tip">💡 ${data.tip}</div>`;
+    }
+
+    con.innerHTML = html;
+  }
+
   function aiExplain() {
-    const sec = popup.querySelector('#ll-popup-ai'), con = popup.querySelector('#ll-popup-ai-content');
+    const sec = popup.querySelector('#ll-popup-ai');
+    const con = popup.querySelector('#ll-popup-ai-content');
     sec.style.display = 'block';
     con.innerHTML = '<span class="ll-popup-loading">Pensando...</span>';
     chrome.runtime.sendMessage({
       type: 'AI_EXPLAIN', word: curWord, context: curCtx,
       targetLang: state.config.targetLang, nativeLang: state.config.nativeLang,
-    }, res => { con.textContent = res?.explanation || 'Error.'; });
+    }, res => {
+      renderExplanation(res?.explanation);
+    });
   }
 
   function save(isPhrase) {

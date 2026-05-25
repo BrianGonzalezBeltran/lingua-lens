@@ -73,3 +73,13 @@
 }
 .ll-sub-target:hover .ll-sub-repeat { opacity: 1; }
 .ll-sub-repeat:hover { background: rgba(139,92,246,0.2) !important; border-color: rgba(139,92,246,0.4) !important; }
+
+/* AI Explanation rich content */
+.ll-ai-translation { font-size: 15px; font-weight: 600; color: #90cdf4; margin-bottom: 6px; }
+.ll-ai-grammar { font-size: 12px; color: #94a3b8; margin-bottom: 8px; font-style: italic; }
+.ll-ai-examples-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.ll-ai-examples { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ll-ai-example { padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 2px solid rgba(99,179,237,0.3); }
+.ll-ai-example-sentence { font-size: 13px; color: #e2e8f0; }
+.ll-ai-example-translation { font-size: 12px; color: #64748b; margin-top: 2px; }
+.ll-ai-tip { font-size: 12px; color: #c4b5fd; padding: 6px 10px; background: rgba(139,92,246,0.05); border-radius: 6px; }
