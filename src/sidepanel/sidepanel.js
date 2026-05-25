@@ -69,6 +69,36 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Shared AI explain renderer
+  function renderAiExplanation(aiDiv, data) {
+    if (!data) { aiDiv.textContent = 'Configura tu API key en el popup'; return; }
+    let html = '';
+    if (data.translation) html += `<div class="ll-vocab-ai-translation">${data.translation}</div>`;
+    if (data.grammar) html += `<div class="ll-vocab-ai-grammar">${data.grammar}</div>`;
+    if (data.examples?.length) {
+      html += '<div class="ll-vocab-ai-examples">';
+      data.examples.forEach(ex => {
+        html += `<div class="ll-vocab-ai-example">
+          <div class="ll-vocab-ai-sentence">${ex.sentence}</div>
+          <div class="ll-vocab-ai-trans">${ex.translation}</div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    if (data.tip) html += `<div class="ll-vocab-ai-tip">💡 ${data.tip}</div>`;
+    aiDiv.innerHTML = html;
+  }
+
+  function requestExplain(word, context, aiDiv) {
+    if (aiDiv.style.display === 'block') { aiDiv.style.display = 'none'; return; }
+    aiDiv.style.display = 'block';
+    aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
+    chrome.runtime.sendMessage({
+      type: 'AI_EXPLAIN', word, context: context || '',
+      targetLang: 'en', nativeLang: 'es',
+    }, res => renderAiExplanation(aiDiv, res?.explanation));
+  }
+
   function addTranscriptEntry(target, native, time) {
     if (seenTexts.has(target)) return;
     seenTexts.add(target); entryCount++;
@@ -77,17 +107,28 @@ document.addEventListener('DOMContentLoaded', () => {
     entry.innerHTML = `
       <div class="ll-transcript-entry-header">
         <span class="ll-transcript-time">${fmt(time)}</span>
-        <button class="ll-transcript-save" title="Guardar frase">⭐</button>
+        <div class="ll-transcript-entry-actions">
+          <button class="ll-transcript-explain" title="Explicar">🧠</button>
+          <button class="ll-transcript-save" title="Guardar frase">⭐</button>
+        </div>
       </div>
       <div class="ll-transcript-target">${target}</div>
       ${native ? `<div class="ll-transcript-native">${native}</div>` : ''}
+      <div class="ll-transcript-ai" style="display:none"></div>
     `;
-    entry.addEventListener('click', (e) => { if (!e.target.closest('.ll-transcript-save')) seekTo(time); });
+    entry.addEventListener('click', (e) => {
+      if (e.target.closest('.ll-transcript-save') || e.target.closest('.ll-transcript-explain')) return;
+      seekTo(time);
+    });
     entry.querySelector('.ll-transcript-save').addEventListener('click', (e) => {
       e.stopPropagation(); const btn = e.target;
       chrome.runtime.sendMessage({ type: 'SAVE_WORD', word: target, translation: native || '', context: '', targetLang: '', timestamp: Date.now() }, res => {
         if (res?.success) { btn.textContent = res.duplicate ? '⚠' : '✅'; btn.disabled = true; setTimeout(() => { btn.textContent = '⭐'; btn.disabled = false; }, 2000); }
       });
+    });
+    entry.querySelector('.ll-transcript-explain').addEventListener('click', (e) => {
+      e.stopPropagation();
+      requestExplain(target, '', entry.querySelector('.ll-transcript-ai'));
     });
     const es = transcriptList.querySelector('.ll-empty-state'); if (es) es.remove();
     transcriptList.appendChild(entry);
@@ -119,48 +160,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="ll-vocab-translation">${item.translation || ''}</div>
         ${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}
         <div class="ll-vocab-card-footer">
-          <button class="ll-vocab-explain" title="Explicar">🧠</button>
           ${date ? `<span class="ll-vocab-date">${date}</span>` : ''}
+          <button class="ll-vocab-explain" title="Explicar">🧠</button>
         </div>
         <div class="ll-vocab-ai" style="display:none"></div>
       `;
-
       card.querySelector('.ll-vocab-explain').addEventListener('click', (e) => {
         e.stopPropagation();
-        const aiDiv = card.querySelector('.ll-vocab-ai');
-        const btn = e.currentTarget;
-        if (aiDiv.style.display === 'block') {
-          aiDiv.style.display = 'none';
-          btn.textContent = '🧠';
-          return;
-        }
-        aiDiv.style.display = 'block';
-        aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
-        btn.textContent = '🧠';
-        chrome.runtime.sendMessage({
-          type: 'AI_EXPLAIN', word: item.word, context: item.context || '',
-          targetLang: item.targetLang || 'en', nativeLang: 'es',
-        }, res => {
-          const data = res?.explanation;
-          if (!data) { aiDiv.textContent = 'Configura tu API key en el popup'; return; }
-          let html = '';
-          if (data.translation) html += `<div class="ll-vocab-ai-translation">${data.translation}</div>`;
-          if (data.grammar) html += `<div class="ll-vocab-ai-grammar">${data.grammar}</div>`;
-          if (data.examples?.length) {
-            html += '<div class="ll-vocab-ai-examples">';
-            data.examples.forEach(ex => {
-              html += `<div class="ll-vocab-ai-example">
-                <div class="ll-vocab-ai-sentence">${ex.sentence}</div>
-                <div class="ll-vocab-ai-trans">${ex.translation}</div>
-              </div>`;
-            });
-            html += '</div>';
-          }
-          if (data.tip) html += `<div class="ll-vocab-ai-tip">💡 ${data.tip}</div>`;
-          aiDiv.innerHTML = html;
-        });
+        requestExplain(item.word, item.context || '', card.querySelector('.ll-vocab-ai'));
       });
-
       card.querySelector('.ll-vocab-delete').addEventListener('click', (e) => {
         e.stopPropagation();
         chrome.runtime.sendMessage({ type: 'DELETE_WORD', word: item.word, targetLang: item.targetLang, timestamp: item.timestamp }, () => loadVocabulary());
