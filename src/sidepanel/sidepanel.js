@@ -160,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="ll-vocab-translation">${item.translation || ''}</div>
         ${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}
         <div class="ll-vocab-card-footer">
-          ${date ? `<span class="ll-vocab-date">${date}</span>` : ''}
           <button class="ll-vocab-explain" title="Explicar">🧠</button>
+          ${date ? `<span class="ll-vocab-date">${date}</span>` : ''}
         </div>
         <div class="ll-vocab-ai" style="display:none"></div>
       `;

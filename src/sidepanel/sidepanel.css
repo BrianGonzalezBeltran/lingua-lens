@@ -160,3 +160,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 }
 .ll-transcript-entry-footer .ll-transcript-explain { opacity: 0; }
 .ll-transcript-entry:hover .ll-transcript-entry-footer .ll-transcript-explain { opacity: 1; }
+
+/* Fix vocab footer: date left, explain right */
+.ll-vocab-card-footer { justify-content: space-between !important; flex-direction: row !important; }
