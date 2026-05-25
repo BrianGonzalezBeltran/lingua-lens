@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Close panel
   document.getElementById('ll-panel-close').addEventListener('click', () => window.close());
 
-  // Tabs
   const tabs = document.querySelectorAll('.ll-tab');
   const tabContents = document.querySelectorAll('.ll-tab-content');
   tabs.forEach(tab => {
@@ -15,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Transcript
   const transcriptList = document.getElementById('ll-transcript');
   const transcriptToolbar = document.getElementById('ll-transcript-toolbar');
   const transcriptCount = document.getElementById('ll-transcript-count');
@@ -39,8 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   autoscrollBtn.addEventListener('click', () => {
-    autoScroll = !autoScroll;
-    updateAutoscrollBtn();
+    autoScroll = !autoScroll; updateAutoscrollBtn();
     if (autoScroll) doAutoScroll();
   });
 
@@ -51,42 +47,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateAutoscrollBtn() {
-    if (autoScroll) {
-      autoscrollBtn.className = 'll-transcript-autoscroll ll-autoscroll-on';
-      autoscrollBtn.textContent = '⬇ Auto';
-    } else {
-      autoscrollBtn.className = 'll-transcript-autoscroll ll-autoscroll-off';
-      autoscrollBtn.textContent = '⏸ Auto';
-    }
+    autoscrollBtn.className = autoScroll ? 'll-transcript-autoscroll ll-autoscroll-on' : 'll-transcript-autoscroll ll-autoscroll-off';
+    autoscrollBtn.textContent = autoScroll ? '⬇ Auto' : '⏸ Auto';
   }
 
   function updateToolbar() {
-    if (entryCount > 0) {
-      transcriptToolbar.style.display = 'flex';
-      transcriptCount.textContent = `${entryCount} frases`;
-    } else {
-      transcriptToolbar.style.display = 'none';
-    }
+    transcriptToolbar.style.display = entryCount > 0 ? 'flex' : 'none';
+    transcriptCount.textContent = `${entryCount} frases`;
   }
 
   function clearTranscript() {
     seenTexts.clear(); entryCount = 0;
-    transcriptList.innerHTML = '<p class="ll-empty-state">Transcripción limpiada. Los nuevos subtítulos aparecerán aquí.</p>';
+    transcriptList.innerHTML = '<p class="ll-empty-state">Transcripción limpiada.</p>';
     updateToolbar();
   }
-
   document.getElementById('ll-transcript-clear').addEventListener('click', clearTranscript);
 
-  function seekTo(timeSeconds) {
+  function seekTo(t) {
     chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
-      if (tab) chrome.tabs.sendMessage(tab.id, { type: 'SEEK_TO', timeMs: timeSeconds * 1000 });
+      if (tab) chrome.tabs.sendMessage(tab.id, { type: 'SEEK_TO', timeMs: t * 1000 });
     });
   }
 
   function addTranscriptEntry(target, native, time) {
     if (seenTexts.has(target)) return;
     seenTexts.add(target); entryCount++;
-
     const entry = document.createElement('div');
     entry.className = 'll-transcript-entry';
     entry.innerHTML = `
@@ -97,25 +82,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="ll-transcript-target">${target}</div>
       ${native ? `<div class="ll-transcript-native">${native}</div>` : ''}
     `;
-    entry.addEventListener('click', (e) => {
-      if (e.target.closest('.ll-transcript-save')) return;
-      seekTo(time);
-    });
+    entry.addEventListener('click', (e) => { if (!e.target.closest('.ll-transcript-save')) seekTo(time); });
     entry.querySelector('.ll-transcript-save').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const btn = e.target;
-      chrome.runtime.sendMessage({
-        type: 'SAVE_WORD', word: target, translation: native || '',
-        context: '', targetLang: '', timestamp: Date.now(),
-      }, res => {
-        if (res?.success) {
-          btn.textContent = res.duplicate ? '⚠' : '✅'; btn.disabled = true;
-          setTimeout(() => { btn.textContent = '⭐'; btn.disabled = false; }, 2000);
-        }
+      e.stopPropagation(); const btn = e.target;
+      chrome.runtime.sendMessage({ type: 'SAVE_WORD', word: target, translation: native || '', context: '', targetLang: '', timestamp: Date.now() }, res => {
+        if (res?.success) { btn.textContent = res.duplicate ? '⚠' : '✅'; btn.disabled = true; setTimeout(() => { btn.textContent = '⭐'; btn.disabled = false; }, 2000); }
       });
     });
-    const emptyState = transcriptList.querySelector('.ll-empty-state');
-    if (emptyState) emptyState.remove();
+    const es = transcriptList.querySelector('.ll-empty-state'); if (es) es.remove();
     transcriptList.appendChild(entry);
     if (autoScroll) doAutoScroll();
     updateToolbar();
@@ -140,38 +114,35 @@ document.addEventListener('DOMContentLoaded', () => {
       card.innerHTML = `
         <div class="ll-vocab-card-header">
           <div class="ll-vocab-word">${item.word}</div>
-          <div class="ll-vocab-card-actions">
-            <button class="ll-vocab-explain" title="Explicar">🧠</button>
-            <button class="ll-vocab-delete" title="Eliminar">✕</button>
-          </div>
+          <button class="ll-vocab-delete" title="Eliminar">✕</button>
         </div>
         <div class="ll-vocab-translation">${item.translation || ''}</div>
         ${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}
-        ${date ? `<div class="ll-vocab-date">${date}</div>` : ''}
+        <div class="ll-vocab-card-footer">
+          <button class="ll-vocab-explain" title="Explicar">🧠 Explicar</button>
+          ${date ? `<span class="ll-vocab-date">${date}</span>` : ''}
+        </div>
         <div class="ll-vocab-ai" style="display:none"></div>
       `;
 
       card.querySelector('.ll-vocab-explain').addEventListener('click', (e) => {
         e.stopPropagation();
         const aiDiv = card.querySelector('.ll-vocab-ai');
+        const btn = e.currentTarget;
         if (aiDiv.style.display === 'block') {
           aiDiv.style.display = 'none';
+          btn.textContent = '🧠 Explicar';
           return;
         }
         aiDiv.style.display = 'block';
         aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
+        btn.textContent = '🧠 Cerrar';
         chrome.runtime.sendMessage({
-          type: 'AI_EXPLAIN',
-          word: item.word,
-          context: item.context || '',
-          targetLang: item.targetLang || 'en',
-          nativeLang: 'es',
+          type: 'AI_EXPLAIN', word: item.word, context: item.context || '',
+          targetLang: item.targetLang || 'en', nativeLang: 'es',
         }, res => {
           const data = res?.explanation;
-          if (!data) {
-            aiDiv.textContent = 'Configura tu API key en el popup';
-            return;
-          }
+          if (!data) { aiDiv.textContent = 'Configura tu API key en el popup'; return; }
           let html = '';
           if (data.translation) html += `<div class="ll-vocab-ai-translation">${data.translation}</div>`;
           if (data.grammar) html += `<div class="ll-vocab-ai-grammar">${data.grammar}</div>`;
@@ -192,10 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       card.querySelector('.ll-vocab-delete').addEventListener('click', (e) => {
         e.stopPropagation();
-        chrome.runtime.sendMessage({
-          type: 'DELETE_WORD', word: item.word,
-          targetLang: item.targetLang, timestamp: item.timestamp,
-        }, () => loadVocabulary());
+        chrome.runtime.sendMessage({ type: 'DELETE_WORD', word: item.word, targetLang: item.targetLang, timestamp: item.timestamp }, () => loadVocabulary());
       });
       vocabList.appendChild(card);
     });
@@ -218,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
     a.href = URL.createObjectURL(new Blob([content], { type }));
     a.download = filename; a.click();
   }
-
   document.getElementById('ll-export-csv').addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'EXPORT_VOCABULARY' }, r => { if (r?.csv) download(r.csv, 'lingualens-vocab.csv', 'text/csv'); });
   });
