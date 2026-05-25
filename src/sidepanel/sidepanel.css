@@ -90,3 +90,34 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* Panel close button */
+.ll-panel-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.ll-panel-close {
+  background: none; border: none; color: #475569; cursor: pointer;
+  font-size: 16px; padding: 4px 8px; border-radius: 4px; transition: all 0.15s;
+}
+.ll-panel-close:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+
+/* Vocab card actions */
+.ll-vocab-card-actions { display: flex; gap: 2px; }
+.ll-vocab-explain {
+  background: none; border: none; cursor: pointer; font-size: 12px;
+  padding: 2px 6px; border-radius: 4px; transition: all 0.15s; opacity: 0;
+}
+.ll-vocab-card:hover .ll-vocab-explain { opacity: 1; }
+.ll-vocab-explain:hover { background: rgba(139,92,246,0.1); }
+
+/* Vocab AI explanation inline */
+.ll-vocab-ai {
+  margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02);
+  border-radius: 6px; border-left: 2px solid rgba(139,92,246,0.3);
+}
+.ll-vocab-loading { color: #64748b; font-style: italic; font-size: 12px; }
+.ll-vocab-ai-translation { font-size: 13px; font-weight: 600; color: #90cdf4; margin-bottom: 4px; }
+.ll-vocab-ai-grammar { font-size: 11px; color: #94a3b8; font-style: italic; margin-bottom: 6px; }
+.ll-vocab-ai-examples { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.ll-vocab-ai-example { padding: 4px 8px; background: rgba(255,255,255,0.02); border-radius: 4px; }
+.ll-vocab-ai-sentence { font-size: 12px; color: #e2e8f0; }
+.ll-vocab-ai-trans { font-size: 11px; color: #64748b; }
+.ll-vocab-ai-tip { font-size: 11px; color: #c4b5fd; padding: 4px 8px; background: rgba(139,92,246,0.04); border-radius: 4px; }

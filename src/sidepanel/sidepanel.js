@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Close panel
+  document.getElementById('ll-panel-close').addEventListener('click', () => window.close());
+
+  // Tabs
   const tabs = document.querySelectorAll('.ll-tab');
   const tabContents = document.querySelectorAll('.ll-tab-content');
   tabs.forEach(tab => {
@@ -11,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Transcript
   const transcriptList = document.getElementById('ll-transcript');
   const transcriptToolbar = document.getElementById('ll-transcript-toolbar');
   const transcriptCount = document.getElementById('ll-transcript-count');
@@ -22,19 +27,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let autoScroll = true;
   let ignoreScrollEvents = false;
 
-  // Scroll up → disable auto-scroll
   transcriptList.addEventListener('wheel', (e) => {
-    if (e.deltaY < 0 && autoScroll) {
-      autoScroll = false;
-      updateAutoscrollBtn();
-    }
-    // Scroll down to bottom → re-enable
+    if (e.deltaY < 0 && autoScroll) { autoScroll = false; updateAutoscrollBtn(); }
     if (e.deltaY > 0 && !autoScroll) {
       setTimeout(() => {
-        const atBottom = transcriptList.scrollHeight - transcriptList.scrollTop - transcriptList.clientHeight < 60;
-        if (atBottom) {
-          autoScroll = true;
-          updateAutoscrollBtn();
+        if (transcriptList.scrollHeight - transcriptList.scrollTop - transcriptList.clientHeight < 60) {
+          autoScroll = true; updateAutoscrollBtn();
         }
       }, 50);
     }
@@ -72,8 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function clearTranscript() {
-    seenTexts.clear();
-    entryCount = 0;
+    seenTexts.clear(); entryCount = 0;
     transcriptList.innerHTML = '<p class="ll-empty-state">Transcripción limpiada. Los nuevos subtítulos aparecerán aquí.</p>';
     updateToolbar();
   }
@@ -88,8 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addTranscriptEntry(target, native, time) {
     if (seenTexts.has(target)) return;
-    seenTexts.add(target);
-    entryCount++;
+    seenTexts.add(target); entryCount++;
 
     const entry = document.createElement('div');
     entry.className = 'll-transcript-entry';
@@ -101,34 +97,25 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="ll-transcript-target">${target}</div>
       ${native ? `<div class="ll-transcript-native">${native}</div>` : ''}
     `;
-
     entry.addEventListener('click', (e) => {
       if (e.target.closest('.ll-transcript-save')) return;
       seekTo(time);
     });
-
     entry.querySelector('.ll-transcript-save').addEventListener('click', (e) => {
       e.stopPropagation();
       const btn = e.target;
       chrome.runtime.sendMessage({
-        type: 'SAVE_WORD',
-        word: target,
-        translation: native || '',
-        context: '',
-        targetLang: '',
-        timestamp: Date.now(),
+        type: 'SAVE_WORD', word: target, translation: native || '',
+        context: '', targetLang: '', timestamp: Date.now(),
       }, res => {
         if (res?.success) {
-          btn.textContent = res.duplicate ? '⚠' : '✅';
-          btn.disabled = true;
+          btn.textContent = res.duplicate ? '⚠' : '✅'; btn.disabled = true;
           setTimeout(() => { btn.textContent = '⭐'; btn.disabled = false; }, 2000);
         }
       });
     });
-
     const emptyState = transcriptList.querySelector('.ll-empty-state');
     if (emptyState) emptyState.remove();
-
     transcriptList.appendChild(entry);
     if (autoScroll) doAutoScroll();
     updateToolbar();
@@ -139,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (msg.type === 'VOCAB_UPDATED') loadVocabulary();
   });
 
+  // Vocabulary
   const vocabList = document.getElementById('ll-vocab-list');
   let allVocab = [];
 
@@ -152,12 +140,56 @@ document.addEventListener('DOMContentLoaded', () => {
       card.innerHTML = `
         <div class="ll-vocab-card-header">
           <div class="ll-vocab-word">${item.word}</div>
-          <button class="ll-vocab-delete" title="Eliminar">✕</button>
+          <div class="ll-vocab-card-actions">
+            <button class="ll-vocab-explain" title="Explicar">🧠</button>
+            <button class="ll-vocab-delete" title="Eliminar">✕</button>
+          </div>
         </div>
         <div class="ll-vocab-translation">${item.translation || ''}</div>
         ${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}
         ${date ? `<div class="ll-vocab-date">${date}</div>` : ''}
+        <div class="ll-vocab-ai" style="display:none"></div>
       `;
+
+      card.querySelector('.ll-vocab-explain').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const aiDiv = card.querySelector('.ll-vocab-ai');
+        if (aiDiv.style.display === 'block') {
+          aiDiv.style.display = 'none';
+          return;
+        }
+        aiDiv.style.display = 'block';
+        aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
+        chrome.runtime.sendMessage({
+          type: 'AI_EXPLAIN',
+          word: item.word,
+          context: item.context || '',
+          targetLang: item.targetLang || 'en',
+          nativeLang: 'es',
+        }, res => {
+          const data = res?.explanation;
+          if (!data) {
+            aiDiv.textContent = 'Configura tu API key en el popup';
+            return;
+          }
+          let html = '';
+          if (data.translation) html += `<div class="ll-vocab-ai-translation">${data.translation}</div>`;
+          if (data.grammar) html += `<div class="ll-vocab-ai-grammar">${data.grammar}</div>`;
+          if (data.examples?.length) {
+            html += '<div class="ll-vocab-ai-examples">';
+            data.examples.forEach(ex => {
+              html += `<div class="ll-vocab-ai-example">
+                <div class="ll-vocab-ai-sentence">${ex.sentence}</div>
+                <div class="ll-vocab-ai-trans">${ex.translation}</div>
+              </div>`;
+            });
+            html += '</div>';
+          }
+          if (data.tip) html += `<div class="ll-vocab-ai-tip">💡 ${data.tip}</div>`;
+          aiDiv.innerHTML = html;
+        });
+      });
+
       card.querySelector('.ll-vocab-delete').addEventListener('click', (e) => {
         e.stopPropagation();
         chrome.runtime.sendMessage({
