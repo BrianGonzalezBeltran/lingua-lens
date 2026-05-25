@@ -13,18 +13,17 @@
     listeners: [],
     currentCaption: { target: '', native: '', time: 0 },
     _hoverPaused: false,
+    _frozen: false,
     targetCaptions: [],
     nativeCaptions: [],
   };
   const state = window.__linguaLens;
 
-  // Inject page-script into MAIN world
   const s = document.createElement('script');
   s.src = chrome.runtime.getURL('src/content/page-script.js');
   s.onload = () => s.remove();
   (document.head || document.documentElement).appendChild(s);
 
-  // Binary search for caption at time
   function findAt(caps, ms) {
     let lo = 0, hi = caps.length - 1;
     while (lo <= hi) {
@@ -45,31 +44,35 @@
     if (!video) return;
 
     function sync() {
-      const ms = video.currentTime * 1000;
-      const tc = findAt(state.targetCaptions, ms);
-      const nc = findAt(state.nativeCaptions, ms);
-      const targetText = tc?.text || '';
-      const nativeText = nc?.text || '';
+      // Don't update captions while frozen (hover-pause)
+      if (!state._frozen) {
+        const ms = video.currentTime * 1000;
+        const tc = findAt(state.targetCaptions, ms);
+        const nc = findAt(state.nativeCaptions, ms);
+        const targetText = tc?.text || '';
+        const nativeText = nc?.text || '';
 
-      if (targetText !== lastTargetText || nativeText !== lastNativeText) {
-        lastTargetText = targetText;
-        lastNativeText = nativeText;
-        state.currentCaption = { target: targetText, native: nativeText, time: video.currentTime };
+        if (targetText !== lastTargetText || nativeText !== lastNativeText) {
+          lastTargetText = targetText;
+          lastNativeText = nativeText;
+          state.currentCaption = { target: targetText, native: nativeText, time: video.currentTime };
 
-        state.listeners.forEach(fn => fn({
-          type: 'CAPTION_TEXT',
-          target: targetText,
-          native: nativeText,
-          time: video.currentTime,
-        }));
-
-        if (targetText) {
-          chrome.runtime.sendMessage({
-            type: 'CAPTION_FOR_PANEL',
+          state.listeners.forEach(fn => fn({
+            type: 'CAPTION_TEXT',
             target: targetText,
             native: nativeText,
+            targetCaption: tc,
             time: video.currentTime,
-          });
+          }));
+
+          if (targetText) {
+            chrome.runtime.sendMessage({
+              type: 'CAPTION_FOR_PANEL',
+              target: targetText,
+              native: nativeText,
+              time: video.currentTime,
+            });
+          }
         }
       }
       syncRaf = requestAnimationFrame(sync);
@@ -82,7 +85,6 @@
     lastTargetText = lastNativeText = '';
   }
 
-  // Wait for page-script to be ready (it posts TRACKS_AVAILABLE when init completes)
   let pageScriptReady = false;
   let pendingActivation = null;
 
@@ -93,7 +95,6 @@
     if (pageScriptReady) {
       window.postMessage({ type: `${PREFIX}_ACTIVATE`, targetLang, nativeLang }, '*');
     } else {
-      // Queue activation until page-script is ready
       pendingActivation = { targetLang, nativeLang };
       console.log('[LL] Queued activation — waiting for page-script');
     }
@@ -112,13 +113,11 @@
       console.log('[LL] Tracks:', state.tracks.map(t => `${t.languageName} (${t.languageCode})`));
       chrome.runtime.sendMessage({ type: 'TRACKS_AVAILABLE', tracks: state.tracks });
 
-      // If there's a pending activation, fire it now
       if (pendingActivation) {
         console.log('[LL] Firing queued activation');
         window.postMessage({ type: `${PREFIX}_ACTIVATE`, ...pendingActivation }, '*');
         pendingActivation = null;
       } else {
-        // Check stored preferences
         chrome.storage.sync.get(['targetLang', 'nativeLang'], c => {
           if (c.targetLang && c.nativeLang) activateDual(c.targetLang, c.nativeLang);
         });
