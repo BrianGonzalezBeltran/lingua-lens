@@ -163,3 +163,58 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 
 /* Fix vocab footer: date left, explain right */
 .ll-vocab-card-footer { justify-content: space-between !important; flex-direction: row !important; }
+
+/* ===== PRACTICE TAB ===== */
+.ll-practice-container { display: flex; flex-direction: column; padding: 16px; height: 100%; }
+.ll-practice-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.ll-practice-remaining { font-size: 13px; color: #90cdf4; font-weight: 500; }
+.ll-practice-level { font-size: 11px; color: #475569; background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 10px; }
+
+/* Flashcard */
+.ll-flashcard {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 24px; text-align: center;
+}
+.ll-flashcard-label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+.ll-flashcard-word { font-size: 22px; font-weight: 700; color: #e2e8f0; line-height: 1.4; margin-bottom: 8px; }
+.ll-flashcard-context { font-size: 13px; color: #64748b; font-style: italic; margin-bottom: 16px; }
+.ll-flashcard-divider { width: 40px; height: 2px; background: rgba(99,179,237,0.3); margin: 16px auto; border-radius: 1px; }
+.ll-flashcard-translation { font-size: 18px; color: #90cdf4; font-weight: 500; margin-bottom: 16px; }
+.ll-flashcard-reveal {
+  padding: 10px 24px; background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.3);
+  border-radius: 8px; color: #90cdf4; font-size: 14px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: all 0.15s; align-self: center;
+}
+.ll-flashcard-reveal:hover { background: rgba(99,179,237,0.2); }
+
+/* Rating buttons */
+.ll-practice-buttons { display: flex; gap: 6px; margin-top: 16px; }
+.ll-practice-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03); cursor: pointer; transition: all 0.15s; font-family: inherit;
+}
+.ll-btn-label { font-size: 12px; font-weight: 600; }
+.ll-btn-time { font-size: 10px; opacity: 0.6; }
+.ll-btn-again { color: #f87171; border-color: rgba(248,113,113,0.2); }
+.ll-btn-again:hover { background: rgba(248,113,113,0.1); }
+.ll-btn-hard { color: #fb923c; border-color: rgba(251,146,60,0.2); }
+.ll-btn-hard:hover { background: rgba(251,146,60,0.1); }
+.ll-btn-good { color: #34d399; border-color: rgba(52,211,153,0.2); }
+.ll-btn-good:hover { background: rgba(52,211,153,0.1); }
+.ll-btn-easy { color: #90cdf4; border-color: rgba(144,205,244,0.2); }
+.ll-btn-easy:hover { background: rgba(144,205,244,0.1); }
+
+/* Empty/done states */
+.ll-practice-empty, .ll-practice-done {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; text-align: center; padding: 24px;
+}
+.ll-practice-empty-icon, .ll-practice-done-icon { font-size: 48px; margin-bottom: 16px; }
+.ll-practice-empty-title, .ll-practice-done-title { font-size: 18px; font-weight: 600; color: #e2e8f0; margin-bottom: 8px; }
+.ll-practice-empty-text, .ll-practice-done-text { font-size: 13px; color: #64748b; line-height: 1.6; }
+.ll-practice-stats { display: flex; gap: 24px; margin-top: 24px; }
+.ll-practice-stat { display: flex; flex-direction: column; align-items: center; }
+.ll-stat-number { font-size: 24px; font-weight: 700; color: #90cdf4; }
+.ll-stat-label { font-size: 11px; color: #64748b; margin-top: 2px; }
