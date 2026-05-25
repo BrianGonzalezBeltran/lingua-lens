@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiKeyInput = document.getElementById('ll-api-key');
   const apiSaveBtn = document.getElementById('ll-api-save');
   const apiStatus = document.getElementById('ll-api-status');
+  const toggleBtn = document.getElementById('ll-toggle-subs');
+  const vocabBtn = document.getElementById('ll-open-vocab');
 
   // Check API key status
   chrome.runtime.sendMessage({ type: 'CHECK_API_KEY' }, res => {
@@ -77,17 +79,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (r?.success) {
         activateBtn.textContent = '✓ Subtítulos activos';
         activateBtn.style.background = 'linear-gradient(135deg, #059669, #34d399)';
+        visible = true;
+        updateToggleBtn();
       }
     } catch { activateBtn.textContent = 'Error — reintentar'; activateBtn.disabled = false; }
   });
 
+  // Toggle subtitles with visual state
   let visible = true;
-  document.getElementById('ll-toggle-subs').addEventListener('click', async () => {
+  function updateToggleBtn() {
+    if (visible) {
+      toggleBtn.textContent = '👁 Visibles';
+      toggleBtn.classList.add('ll-action-active');
+      toggleBtn.classList.remove('ll-action-inactive');
+    } else {
+      toggleBtn.textContent = '👁‍🗨 Ocultos';
+      toggleBtn.classList.remove('ll-action-active');
+      toggleBtn.classList.add('ll-action-inactive');
+    }
+  }
+  updateToggleBtn();
+
+  toggleBtn.addEventListener('click', async () => {
     visible = !visible;
+    updateToggleBtn();
     await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SUBS', visible });
   });
 
-  document.getElementById('ll-open-vocab').addEventListener('click', () => {
+  // Vocab button with word count
+  vocabBtn.addEventListener('click', () => {
     chrome.sidePanel.open({ windowId: tab.windowId });
+  });
+
+  chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, res => {
+    const count = res?.vocabulary?.length || 0;
+    vocabBtn.textContent = count > 0 ? `📚 Vocab (${count})` : '📚 Vocab';
   });
 });

@@ -45,3 +45,15 @@ body{width:340px;font-family:'Segoe UI',system-ui,sans-serif;background:#0f1219;
 }
 .ll-api-save:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
 .ll-api-status { font-size: 11px; margin-top: 4px; display: block; }
+
+/* Action button states */
+.ll-action-active {
+  background: rgba(52,211,153,0.08) !important;
+  border-color: rgba(52,211,153,0.3) !important;
+  color: #34d399 !important;
+}
+.ll-action-inactive {
+  background: rgba(239,68,68,0.06) !important;
+  border-color: rgba(239,68,68,0.2) !important;
+  color: #f87171 !important;
+}
