@@ -107,13 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     entry.innerHTML = `
       <div class="ll-transcript-entry-header">
         <span class="ll-transcript-time">${fmt(time)}</span>
-        <div class="ll-transcript-entry-actions">
-          <button class="ll-transcript-explain" title="Explicar">🧠</button>
-          <button class="ll-transcript-save" title="Guardar frase">⭐</button>
-        </div>
+        <button class="ll-transcript-save" title="Guardar frase">⭐</button>
       </div>
       <div class="ll-transcript-target">${target}</div>
       ${native ? `<div class="ll-transcript-native">${native}</div>` : ''}
+      <div class="ll-transcript-entry-footer">
+        <button class="ll-transcript-explain" title="Explicar">🧠</button>
+      </div>
       <div class="ll-transcript-ai" style="display:none"></div>
     `;
     entry.addEventListener('click', (e) => {

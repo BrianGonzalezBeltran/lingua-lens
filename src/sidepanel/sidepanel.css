@@ -149,3 +149,14 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
   margin-top: 6px; padding: 8px 10px; background: rgba(255,255,255,0.02);
   border-radius: 6px; border-left: 2px solid rgba(139,92,246,0.3);
 }
+
+/* Fix: explain buttons bottom-right in both panels */
+.ll-vocab-card-footer { justify-content: flex-end; }
+.ll-transcript-entry-actions { justify-content: flex-end; }
+
+/* Transcript entry footer */
+.ll-transcript-entry-footer {
+  display: flex; justify-content: flex-end; margin-top: 4px;
+}
+.ll-transcript-entry-footer .ll-transcript-explain { opacity: 0; }
+.ll-transcript-entry:hover .ll-transcript-entry-footer .ll-transcript-explain { opacity: 1; }
