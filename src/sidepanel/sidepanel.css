@@ -218,3 +218,95 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 .ll-practice-stat { display: flex; flex-direction: column; align-items: center; }
 .ll-stat-number { font-size: 24px; font-weight: 700; color: #90cdf4; }
 .ll-stat-label { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* ===== Practice Mode Menu ===== */
+.ll-practice-menu { display: flex; flex-direction: column; padding: 16px; height: 100%; }
+.ll-practice-stats-bar { display: flex; justify-content: space-around; padding: 12px 0; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.ll-practice-stat-mini { font-size: 12px; color: #64748b; }
+.ll-stat-num { color: #90cdf4; font-weight: 600; margin-right: 4px; }
+.ll-practice-modes { display: flex; flex-direction: column; gap: 10px; }
+.ll-mode-card {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; cursor: pointer; transition: all 0.15s; text-align: left;
+  font-family: inherit; color: #e2e8f0;
+}
+.ll-mode-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(99,179,237,0.2); }
+.ll-mode-icon { font-size: 24px; flex-shrink: 0; }
+.ll-mode-title { font-size: 14px; font-weight: 600; }
+.ll-mode-desc { font-size: 11px; color: #64748b; }
+.ll-mode-badge { margin-left: auto; font-size: 12px; font-weight: 600; color: #90cdf4; background: rgba(99,179,237,0.1); padding: 2px 8px; border-radius: 10px; flex-shrink: 0; }
+.ll-badge-done { color: #34d399; background: rgba(52,211,153,0.1); }
+.ll-back-btn { background: none; border: none; color: #64748b; cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 4px; font-family: inherit; transition: all 0.15s; }
+.ll-back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.06); }
+.ll-practice-score-mini { font-size: 12px; color: #64748b; }
+
+/* ===== Cloze ===== */
+.ll-cloze-card {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  padding: 24px; text-align: center;
+}
+.ll-cloze-label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+.ll-cloze-sentence { font-size: 18px; color: #e2e8f0; line-height: 1.6; margin-bottom: 16px; }
+.ll-cloze-blank { color: #90cdf4; font-weight: 700; border-bottom: 2px solid #90cdf4; padding: 0 8px; }
+.ll-cloze-hint { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+.ll-cloze-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.ll-cloze-input {
+  flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; color: #e2e8f0; font-size: 16px; font-family: inherit; text-align: center;
+}
+.ll-cloze-input:focus { outline: none; border-color: #90cdf4; }
+.ll-cloze-check {
+  padding: 10px 16px; background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.3);
+  border-radius: 8px; color: #90cdf4; font-size: 16px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.ll-cloze-check:hover:not(:disabled) { background: rgba(99,179,237,0.2); }
+.ll-cloze-check:disabled { opacity: 0.4; cursor: not-allowed; }
+.ll-cloze-actions { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; }
+.ll-cloze-hint-btn, .ll-cloze-skip {
+  background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+  padding: 6px 12px; color: #64748b; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.ll-cloze-hint-btn:hover, .ll-cloze-skip:hover { color: #94a3b8; background: rgba(255,255,255,0.04); }
+.ll-cloze-result { padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; text-align: center; }
+.ll-cloze-correct { background: rgba(52,211,153,0.1); color: #34d399; }
+.ll-cloze-wrong { background: rgba(248,113,113,0.1); color: #f87171; }
+
+/* Score bar */
+.ll-practice-score-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; margin-top: 16px; margin-bottom: 16px; }
+.ll-practice-score-fill { height: 100%; background: linear-gradient(90deg, #34d399, #90cdf4); border-radius: 3px; transition: width 0.3s; }
+
+/* ===== Reorder ===== */
+.ll-reorder-card {
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  padding: 24px; text-align: center;
+}
+.ll-reorder-label { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.ll-reorder-hint { font-size: 13px; color: #64748b; font-style: italic; margin-bottom: 16px; }
+.ll-reorder-answer {
+  min-height: 50px; padding: 10px; margin-bottom: 16px;
+  background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.1);
+  border-radius: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center;
+}
+.ll-reorder-placeholder { color: #475569; font-size: 13px; }
+.ll-reorder-words { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 16px; }
+.ll-word-chip {
+  padding: 8px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; color: #e2e8f0; font-size: 14px; cursor: pointer;
+  font-family: inherit; transition: all 0.15s;
+}
+.ll-word-chip:hover { background: rgba(99,179,237,0.15); border-color: rgba(99,179,237,0.3); }
+.ll-word-chip-selected { background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.3); color: #90cdf4; }
+.ll-reorder-actions { display: flex; justify-content: center; gap: 12px; margin-bottom: 12px; }
+.ll-reorder-clear {
+  background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+  padding: 8px 16px; color: #64748b; font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.ll-reorder-clear:hover { color: #94a3b8; background: rgba(255,255,255,0.04); }
+.ll-reorder-check {
+  padding: 8px 20px; background: rgba(99,179,237,0.1); border: 1px solid rgba(99,179,237,0.3);
+  border-radius: 6px; color: #90cdf4; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.15s;
+}
+.ll-reorder-check:hover:not(:disabled) { background: rgba(99,179,237,0.2); }
+.ll-reorder-check:disabled { opacity: 0.4; cursor: not-allowed; }
+.ll-reorder-result { padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; text-align: center; }

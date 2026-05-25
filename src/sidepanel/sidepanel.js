@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.classList.add('ll-tab-active');
       document.getElementById(`tab-${tab.dataset.tab}`).classList.add('ll-tab-visible');
       if (tab.dataset.tab === 'vocabulary') loadVocabulary();
-      if (tab.dataset.tab === 'practice') loadPractice();
+      if (tab.dataset.tab === 'practice') showPracticeModes();
     });
   });
 
@@ -119,9 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function loadVocabulary() {
-    chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, res => { allVocab = res?.vocabulary || []; renderVocab(allVocab); });
-  }
+  function loadVocabulary() { chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, res => { allVocab = res?.vocabulary || []; renderVocab(allVocab); }); }
 
   document.getElementById('ll-vocab-search').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase().trim();
@@ -132,77 +130,113 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ll-export-csv').addEventListener('click', () => { chrome.runtime.sendMessage({ type: 'EXPORT_VOCABULARY' }, r => { if (r?.csv) download(r.csv, 'lingualens-vocab.csv', 'text/csv'); }); });
   document.getElementById('ll-export-anki').addEventListener('click', () => { chrome.runtime.sendMessage({ type: 'EXPORT_VOCABULARY' }, r => { if (r?.anki) download(r.anki, 'lingualens-anki.txt', 'text/plain'); }); });
 
-  // ===== PRACTICE (SRS Flashcards) =====
+  // ===== PRACTICE =====
   const practiceContainer = document.getElementById('ll-practice');
-  let dueCards = [], currentCardIndex = 0, cardRevealed = false;
+  let practiceVocab = [];
 
-  function loadPractice() {
+  const SRS_INTERVALS = [[0.17,1,4,24],[1,8,24,72],[24,48,72,168],[72,168,336,720],[168,336,720,1440]];
+  function getSrsPreview(card, q) {
+    let lv = card.srs?.level || 0;
+    if (q === 0) lv = 0; else if (q >= 2) lv = Math.min(lv + 1, SRS_INTERVALS.length - 1);
+    return SRS_INTERVALS[Math.min(lv, SRS_INTERVALS.length - 1)][q] * 3600000;
+  }
+  function fmtTime(ms) { const h = ms/3600000; if (h<1) return `${Math.round(h*60)} min`; if (h<24) return `${Math.round(h)} h`; if (h<168) return `${Math.round(h/24)} días`; return `${Math.round(h/168)} sem`; }
+
+  function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function showPracticeModes() {
     chrome.runtime.sendMessage({ type: 'GET_DUE_CARDS' }, res => {
-      dueCards = res?.cards || [];
-      currentCardIndex = 0;
-      cardRevealed = false;
-      renderPractice(res?.stats);
+      const stats = res?.stats || { total: 0, due: 0, learned: 0, newCards: 0 };
+      practiceVocab = res?.cards || [];
+
+      if (stats.total === 0) {
+        practiceContainer.innerHTML = `
+          <div class="ll-practice-empty">
+            <div class="ll-practice-empty-icon">📚</div>
+            <div class="ll-practice-empty-title">No hay palabras guardadas</div>
+            <div class="ll-practice-empty-text">Guarda palabras y frases mientras ves videos para practicarlas aquí.</div>
+          </div>`;
+        return;
+      }
+
+      chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, vRes => {
+        const allWords = vRes?.vocabulary || [];
+
+        practiceContainer.innerHTML = `
+          <div class="ll-practice-menu">
+            <div class="ll-practice-stats-bar">
+              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.due}</span> pendientes</div>
+              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.learned}</span> aprendidas</div>
+              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.total}</span> total</div>
+            </div>
+            <div class="ll-practice-modes">
+              <button class="ll-mode-card" id="ll-mode-flashcard">
+                <span class="ll-mode-icon">🃏</span>
+                <span class="ll-mode-title">Flashcards</span>
+                <span class="ll-mode-desc">Traducción con repetición espaciada</span>
+                ${stats.due > 0 ? `<span class="ll-mode-badge">${stats.due}</span>` : '<span class="ll-mode-badge ll-badge-done">✓</span>'}
+              </button>
+              <button class="ll-mode-card" id="ll-mode-cloze">
+                <span class="ll-mode-icon">✏️</span>
+                <span class="ll-mode-title">Completar frase</span>
+                <span class="ll-mode-desc">Rellena la palabra faltante</span>
+                <span class="ll-mode-badge">${allWords.filter(w => w.context || w.word.split(/\s+/).length > 3).length}</span>
+              </button>
+              <button class="ll-mode-card" id="ll-mode-reorder">
+                <span class="ll-mode-icon">🔀</span>
+                <span class="ll-mode-title">Ordenar frase</span>
+                <span class="ll-mode-desc">Reconstruye la oración correcta</span>
+                <span class="ll-mode-badge">${allWords.filter(w => w.word.split(/\s+/).length > 3).length}</span>
+              </button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('ll-mode-flashcard').addEventListener('click', () => startFlashcards());
+        document.getElementById('ll-mode-cloze').addEventListener('click', () => startCloze(allWords));
+        document.getElementById('ll-mode-reorder').addEventListener('click', () => startReorder(allWords));
+      });
     });
   }
 
-  function fmtTime(ms) {
-    const h = ms / 3600000;
-    if (h < 1) return `${Math.round(h * 60)} min`;
-    if (h < 24) return `${Math.round(h)} h`;
-    if (h < 168) return `${Math.round(h / 24)} días`;
-    return `${Math.round(h / 168)} sem`;
+  // ===== FLASHCARDS =====
+  let dueCards = [], currentCardIndex = 0;
+
+  function startFlashcards() {
+    chrome.runtime.sendMessage({ type: 'GET_DUE_CARDS' }, res => {
+      dueCards = res?.cards || [];
+      currentCardIndex = 0;
+      if (dueCards.length === 0) {
+        practiceContainer.innerHTML = `
+          <div class="ll-practice-done">
+            <div class="ll-practice-done-icon">🎉</div>
+            <div class="ll-practice-done-title">¡Todo al día!</div>
+            <div class="ll-practice-done-text">No hay tarjetas pendientes.</div>
+            <button class="ll-back-btn" id="ll-back-modes">← Volver</button>
+          </div>`;
+        document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+        return;
+      }
+      renderFlashcard();
+    });
   }
 
-  function renderPractice(stats) {
-    if (!stats || stats.total === 0) {
-      practiceContainer.innerHTML = `
-        <div class="ll-practice-empty">
-          <div class="ll-practice-empty-icon">📚</div>
-          <div class="ll-practice-empty-title">No hay palabras guardadas</div>
-          <div class="ll-practice-empty-text">Guarda palabras y frases mientras ves videos para practicarlas aquí.</div>
-        </div>`;
-      return;
-    }
-
-    if (dueCards.length === 0) {
-      practiceContainer.innerHTML = `
-        <div class="ll-practice-done">
-          <div class="ll-practice-done-icon">🎉</div>
-          <div class="ll-practice-done-title">¡Todo al día!</div>
-          <div class="ll-practice-done-text">No hay tarjetas pendientes por revisar.</div>
-          <div class="ll-practice-stats">
-            <div class="ll-practice-stat"><span class="ll-stat-number">${stats.total}</span><span class="ll-stat-label">Total</span></div>
-            <div class="ll-practice-stat"><span class="ll-stat-number">${stats.learned}</span><span class="ll-stat-label">Aprendidas</span></div>
-            <div class="ll-practice-stat"><span class="ll-stat-number">${stats.newCards}</span><span class="ll-stat-label">Nuevas</span></div>
-          </div>
-        </div>`;
-      return;
-    }
-
-    renderCard();
-  }
-
-  function renderCard() {
-    if (currentCardIndex >= dueCards.length) {
-      loadPractice();
-      return;
-    }
-
+  function renderFlashcard() {
+    if (currentCardIndex >= dueCards.length) { showPracticeModes(); return; }
     const card = dueCards[currentCardIndex];
     const remaining = dueCards.length - currentCardIndex;
     const isPhrase = card.word.split(/\s+/).length > 3;
 
     practiceContainer.innerHTML = `
       <div class="ll-practice-header">
+        <button class="ll-back-btn" id="ll-back-modes">←</button>
         <span class="ll-practice-remaining">${remaining} pendiente${remaining !== 1 ? 's' : ''}</span>
         <span class="ll-practice-level">Nivel ${card.srs?.level || 0}</span>
       </div>
-      <div class="ll-flashcard" id="ll-flashcard">
-        <div class="ll-flashcard-front">
-          <div class="ll-flashcard-label">${isPhrase ? 'Frase' : 'Palabra'}</div>
-          <div class="ll-flashcard-word">${card.word}</div>
-          ${card.context ? `<div class="ll-flashcard-context">"${card.context}"</div>` : ''}
-        </div>
+      <div class="ll-flashcard">
+        <div class="ll-flashcard-label">${isPhrase ? 'Frase' : 'Palabra'}</div>
+        <div class="ll-flashcard-word">${card.word}</div>
+        ${card.context ? `<div class="ll-flashcard-context">"${card.context}"</div>` : ''}
         <div class="ll-flashcard-back" id="ll-flashcard-back" style="display:none">
           <div class="ll-flashcard-divider"></div>
           <div class="ll-flashcard-translation">${card.translation || '(sin traducción)'}</div>
@@ -210,65 +244,282 @@ document.addEventListener('DOMContentLoaded', () => {
         <button class="ll-flashcard-reveal" id="ll-flashcard-reveal">Mostrar traducción</button>
       </div>
       <div class="ll-practice-buttons" id="ll-practice-buttons" style="display:none">
-        <button class="ll-practice-btn ll-btn-again" data-quality="0">
-          <span class="ll-btn-label">Otra vez</span>
-          <span class="ll-btn-time">${fmtTime(getSrsPreview(card, 0))}</span>
-        </button>
-        <button class="ll-practice-btn ll-btn-hard" data-quality="1">
-          <span class="ll-btn-label">Difícil</span>
-          <span class="ll-btn-time">${fmtTime(getSrsPreview(card, 1))}</span>
-        </button>
-        <button class="ll-practice-btn ll-btn-good" data-quality="2">
-          <span class="ll-btn-label">Bien</span>
-          <span class="ll-btn-time">${fmtTime(getSrsPreview(card, 2))}</span>
-        </button>
-        <button class="ll-practice-btn ll-btn-easy" data-quality="3">
-          <span class="ll-btn-label">Fácil</span>
-          <span class="ll-btn-time">${fmtTime(getSrsPreview(card, 3))}</span>
-        </button>
+        <button class="ll-practice-btn ll-btn-again" data-quality="0"><span class="ll-btn-label">Otra vez</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,0))}</span></button>
+        <button class="ll-practice-btn ll-btn-hard" data-quality="1"><span class="ll-btn-label">Difícil</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,1))}</span></button>
+        <button class="ll-practice-btn ll-btn-good" data-quality="2"><span class="ll-btn-label">Bien</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,2))}</span></button>
+        <button class="ll-practice-btn ll-btn-easy" data-quality="3"><span class="ll-btn-label">Fácil</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,3))}</span></button>
       </div>
     `;
-
+    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
     document.getElementById('ll-flashcard-reveal').addEventListener('click', () => {
       document.getElementById('ll-flashcard-back').style.display = 'block';
       document.getElementById('ll-flashcard-reveal').style.display = 'none';
       document.getElementById('ll-practice-buttons').style.display = 'flex';
-      cardRevealed = true;
     });
-
     document.querySelectorAll('.ll-practice-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const quality = parseInt(btn.dataset.quality);
-        const card = dueCards[currentCardIndex];
-        chrome.runtime.sendMessage({
-          type: 'REVIEW_WORD',
-          word: card.word,
-          targetLang: card.targetLang,
-          timestamp: card.timestamp,
-          quality,
-        }, () => {
-          currentCardIndex++;
-          cardRevealed = false;
-          renderCard();
-        });
+        chrome.runtime.sendMessage({ type: 'REVIEW_WORD', word: dueCards[currentCardIndex].word, targetLang: dueCards[currentCardIndex].targetLang, timestamp: dueCards[currentCardIndex].timestamp, quality: parseInt(btn.dataset.quality) }, () => { currentCardIndex++; renderFlashcard(); });
       });
     });
   }
 
-  // Preview SRS intervals (client-side mirror of service worker logic)
-  const SRS_INTERVALS = [
-    [0.17, 1, 4, 24],
-    [1, 8, 24, 72],
-    [24, 48, 72, 168],
-    [72, 168, 336, 720],
-    [168, 336, 720, 1440],
-  ];
-  function getSrsPreview(card, quality) {
-    let level = card.srs?.level || 0;
-    if (quality === 0) level = 0;
-    else if (quality >= 2) level = Math.min(level + 1, SRS_INTERVALS.length - 1);
-    const row = SRS_INTERVALS[Math.min(level, SRS_INTERVALS.length - 1)];
-    return row[quality] * 3600000;
+  // ===== CLOZE (Fill in the blank) =====
+  let clozeCards = [], clozeIndex = 0, clozeScore = { correct: 0, total: 0 };
+
+  function startCloze(allWords) {
+    // Use phrases (saved with context, or long words that are phrases)
+    const candidates = allWords.filter(w => {
+      const text = w.context || w.word;
+      return text.split(/\s+/).length > 3;
+    });
+    if (candidates.length === 0) {
+      practiceContainer.innerHTML = `
+        <div class="ll-practice-empty">
+          <div class="ll-practice-empty-icon">✏️</div>
+          <div class="ll-practice-empty-title">No hay frases disponibles</div>
+          <div class="ll-practice-empty-text">Guarda frases completas para usar este modo.</div>
+          <button class="ll-back-btn" id="ll-back-modes">← Volver</button>
+        </div>`;
+      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+      return;
+    }
+    clozeCards = shuffle(candidates).slice(0, 10);
+    clozeIndex = 0;
+    clozeScore = { correct: 0, total: 0 };
+    renderCloze();
+  }
+
+  function renderCloze() {
+    if (clozeIndex >= clozeCards.length) {
+      practiceContainer.innerHTML = `
+        <div class="ll-practice-done">
+          <div class="ll-practice-done-icon">✏️</div>
+          <div class="ll-practice-done-title">Sesión completada</div>
+          <div class="ll-practice-done-text">${clozeScore.correct} de ${clozeScore.total} correctas</div>
+          <div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${clozeScore.total ? Math.round(clozeScore.correct/clozeScore.total*100) : 0}%"></div></div>
+          <button class="ll-back-btn" id="ll-back-modes">← Volver</button>
+        </div>`;
+      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+      return;
+    }
+
+    const item = clozeCards[clozeIndex];
+    const sentence = item.context || item.word;
+    const words = sentence.split(/\s+/);
+
+    // Pick a word to hide (prefer the saved word if it's in the context)
+    let hideWord = '';
+    let hideIndex = -1;
+    if (item.context && item.word) {
+      // The saved word might be in the context
+      const savedClean = item.word.toLowerCase().replace(/[^a-z']/g, '');
+      hideIndex = words.findIndex(w => w.toLowerCase().replace(/[^a-z']/g, '') === savedClean);
+    }
+    if (hideIndex === -1) {
+      // Pick a random content word (skip short words)
+      const contentIndices = words.map((w, i) => ({ w, i })).filter(x => x.w.replace(/[^a-z']/gi, '').length > 3);
+      if (contentIndices.length) {
+        const pick = contentIndices[Math.floor(Math.random() * contentIndices.length)];
+        hideIndex = pick.i;
+      } else {
+        hideIndex = Math.floor(Math.random() * words.length);
+      }
+    }
+    hideWord = words[hideIndex];
+    const cleanHideWord = hideWord.replace(/[^a-zA-Z']/g, '');
+    const display = words.map((w, i) => i === hideIndex ? `<span class="ll-cloze-blank">____</span>` : w).join(' ');
+    const remaining = clozeCards.length - clozeIndex;
+
+    practiceContainer.innerHTML = `
+      <div class="ll-practice-header">
+        <button class="ll-back-btn" id="ll-back-modes">←</button>
+        <span class="ll-practice-remaining">${remaining} restante${remaining !== 1 ? 's' : ''}</span>
+        <span class="ll-practice-score-mini">${clozeScore.correct}/${clozeScore.total}</span>
+      </div>
+      <div class="ll-cloze-card">
+        <div class="ll-cloze-label">Completa la frase</div>
+        <div class="ll-cloze-sentence">${display}</div>
+        <div class="ll-cloze-hint" id="ll-cloze-hint" style="display:none">Primera letra: <strong>${cleanHideWord[0]}</strong></div>
+        <div class="ll-cloze-input-row">
+          <input type="text" class="ll-cloze-input" id="ll-cloze-input" placeholder="Escribe la palabra..." autocomplete="off" spellcheck="false">
+          <button class="ll-cloze-check" id="ll-cloze-check">→</button>
+        </div>
+        <div class="ll-cloze-actions">
+          <button class="ll-cloze-hint-btn" id="ll-cloze-hint-btn">💡 Pista</button>
+          <button class="ll-cloze-skip" id="ll-cloze-skip">Saltar →</button>
+        </div>
+        <div class="ll-cloze-result" id="ll-cloze-result" style="display:none"></div>
+      </div>
+    `;
+
+    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+    const input = document.getElementById('ll-cloze-input');
+    input.focus();
+
+    document.getElementById('ll-cloze-hint-btn').addEventListener('click', () => {
+      document.getElementById('ll-cloze-hint').style.display = 'block';
+    });
+
+    function checkAnswer() {
+      const answer = input.value.trim().toLowerCase();
+      if (!answer) return;
+      const correct = answer === cleanHideWord.toLowerCase();
+      clozeScore.total++;
+      if (correct) clozeScore.correct++;
+      const result = document.getElementById('ll-cloze-result');
+      result.style.display = 'block';
+      result.className = `ll-cloze-result ${correct ? 'll-cloze-correct' : 'll-cloze-wrong'}`;
+      result.innerHTML = correct
+        ? `✓ ¡Correcto!`
+        : `✗ La respuesta era: <strong>${cleanHideWord}</strong>`;
+      input.disabled = true;
+      document.getElementById('ll-cloze-check').disabled = true;
+      setTimeout(() => { clozeIndex++; renderCloze(); }, correct ? 1000 : 2500);
+    }
+
+    document.getElementById('ll-cloze-check').addEventListener('click', checkAnswer);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer(); });
+    document.getElementById('ll-cloze-skip').addEventListener('click', () => {
+      clozeScore.total++;
+      const result = document.getElementById('ll-cloze-result');
+      result.style.display = 'block';
+      result.className = 'll-cloze-result ll-cloze-wrong';
+      result.innerHTML = `La respuesta era: <strong>${cleanHideWord}</strong>`;
+      input.disabled = true;
+      setTimeout(() => { clozeIndex++; renderCloze(); }, 2000);
+    });
+  }
+
+  // ===== REORDER (Sentence reconstruction) =====
+  let reorderCards = [], reorderIndex = 0, reorderScore = { correct: 0, total: 0 };
+
+  function startReorder(allWords) {
+    const candidates = allWords.filter(w => w.word.split(/\s+/).length > 3);
+    if (candidates.length === 0) {
+      practiceContainer.innerHTML = `
+        <div class="ll-practice-empty">
+          <div class="ll-practice-empty-icon">🔀</div>
+          <div class="ll-practice-empty-title">No hay frases disponibles</div>
+          <div class="ll-practice-empty-text">Guarda frases completas para usar este modo.</div>
+          <button class="ll-back-btn" id="ll-back-modes">← Volver</button>
+        </div>`;
+      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+      return;
+    }
+    reorderCards = shuffle(candidates).slice(0, 10);
+    reorderIndex = 0;
+    reorderScore = { correct: 0, total: 0 };
+    renderReorder();
+  }
+
+  function renderReorder() {
+    if (reorderIndex >= reorderCards.length) {
+      practiceContainer.innerHTML = `
+        <div class="ll-practice-done">
+          <div class="ll-practice-done-icon">🔀</div>
+          <div class="ll-practice-done-title">Sesión completada</div>
+          <div class="ll-practice-done-text">${reorderScore.correct} de ${reorderScore.total} correctas</div>
+          <div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${reorderScore.total ? Math.round(reorderScore.correct/reorderScore.total*100) : 0}%"></div></div>
+          <button class="ll-back-btn" id="ll-back-modes">← Volver</button>
+        </div>`;
+      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+      return;
+    }
+
+    const item = reorderCards[reorderIndex];
+    const originalWords = item.word.split(/\s+/);
+    const scrambled = shuffle(originalWords);
+    // Make sure it's actually scrambled
+    if (scrambled.join(' ') === originalWords.join(' ') && originalWords.length > 2) {
+      scrambled.reverse();
+    }
+    const remaining = reorderCards.length - reorderIndex;
+    let selected = [];
+
+    practiceContainer.innerHTML = `
+      <div class="ll-practice-header">
+        <button class="ll-back-btn" id="ll-back-modes">←</button>
+        <span class="ll-practice-remaining">${remaining} restante${remaining !== 1 ? 's' : ''}</span>
+        <span class="ll-practice-score-mini">${reorderScore.correct}/${reorderScore.total}</span>
+      </div>
+      <div class="ll-reorder-card">
+        <div class="ll-reorder-label">Ordena las palabras</div>
+        ${item.translation ? `<div class="ll-reorder-hint">${item.translation}</div>` : ''}
+        <div class="ll-reorder-answer" id="ll-reorder-answer"></div>
+        <div class="ll-reorder-words" id="ll-reorder-words"></div>
+        <div class="ll-reorder-actions">
+          <button class="ll-reorder-clear" id="ll-reorder-clear">Limpiar</button>
+          <button class="ll-reorder-check" id="ll-reorder-check" disabled>Verificar</button>
+        </div>
+        <div class="ll-reorder-result" id="ll-reorder-result" style="display:none"></div>
+      </div>
+    `;
+
+    const wordsContainer = document.getElementById('ll-reorder-words');
+    const answerContainer = document.getElementById('ll-reorder-answer');
+    const checkBtn = document.getElementById('ll-reorder-check');
+
+    function renderWords() {
+      wordsContainer.innerHTML = '';
+      scrambled.forEach((w, i) => {
+        if (selected.includes(i)) return;
+        const chip = document.createElement('button');
+        chip.className = 'll-word-chip';
+        chip.textContent = w;
+        chip.addEventListener('click', () => {
+          selected.push(i);
+          renderWords();
+          renderAnswer();
+          checkBtn.disabled = selected.length !== originalWords.length;
+        });
+        wordsContainer.appendChild(chip);
+      });
+    }
+
+    function renderAnswer() {
+      answerContainer.innerHTML = '';
+      selected.forEach((idx, pos) => {
+        const chip = document.createElement('button');
+        chip.className = 'll-word-chip ll-word-chip-selected';
+        chip.textContent = scrambled[idx];
+        chip.addEventListener('click', () => {
+          selected = selected.filter((_, p) => p !== pos);
+          renderWords();
+          renderAnswer();
+          checkBtn.disabled = true;
+        });
+        answerContainer.appendChild(chip);
+      });
+      if (selected.length === 0) {
+        answerContainer.innerHTML = '<span class="ll-reorder-placeholder">Toca las palabras en orden...</span>';
+      }
+    }
+
+    renderWords();
+    renderAnswer();
+
+    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
+    document.getElementById('ll-reorder-clear').addEventListener('click', () => {
+      selected = [];
+      renderWords();
+      renderAnswer();
+      checkBtn.disabled = true;
+      document.getElementById('ll-reorder-result').style.display = 'none';
+    });
+
+    checkBtn.addEventListener('click', () => {
+      const attempt = selected.map(i => scrambled[i]).join(' ');
+      const correct = attempt === originalWords.join(' ');
+      reorderScore.total++;
+      if (correct) reorderScore.correct++;
+      const result = document.getElementById('ll-reorder-result');
+      result.style.display = 'block';
+      result.className = `ll-reorder-result ${correct ? 'll-cloze-correct' : 'll-cloze-wrong'}`;
+      result.innerHTML = correct
+        ? '✓ ¡Correcto!'
+        : `✗ El orden correcto era:<br><strong>${originalWords.join(' ')}</strong>`;
+      setTimeout(() => { reorderIndex++; renderReorder(); }, correct ? 1000 : 3000);
+    });
   }
 
   loadVocabulary();
