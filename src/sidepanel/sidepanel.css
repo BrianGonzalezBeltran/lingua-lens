@@ -133,3 +133,6 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 }
 .ll-vocab-card:hover .ll-vocab-explain { opacity: 1; }
 .ll-vocab-explain:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3); color: #c4b5fd; }
+
+/* Fix: footer align explain right */
+.ll-vocab-card-footer { flex-direction: row-reverse; }

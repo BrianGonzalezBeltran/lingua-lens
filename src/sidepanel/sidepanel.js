@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="ll-vocab-translation">${item.translation || ''}</div>
         ${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}
         <div class="ll-vocab-card-footer">
-          <button class="ll-vocab-explain" title="Explicar">🧠 Explicar</button>
+          <button class="ll-vocab-explain" title="Explicar">🧠</button>
           ${date ? `<span class="ll-vocab-date">${date}</span>` : ''}
         </div>
         <div class="ll-vocab-ai" style="display:none"></div>
@@ -131,12 +131,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = e.currentTarget;
         if (aiDiv.style.display === 'block') {
           aiDiv.style.display = 'none';
-          btn.textContent = '🧠 Explicar';
+          btn.textContent = '🧠';
           return;
         }
         aiDiv.style.display = 'block';
         aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
-        btn.textContent = '🧠 Cerrar';
+        btn.textContent = '🧠';
         chrome.runtime.sendMessage({
           type: 'AI_EXPLAIN', word: item.word, context: item.context || '',
           targetLang: item.targetLang || 'en', nativeLang: 'es',
