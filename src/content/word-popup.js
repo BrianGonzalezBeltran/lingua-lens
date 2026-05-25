@@ -153,7 +153,7 @@
 
   document.addEventListener('click', e => {
     const w = e.target.closest('.ll-word');
-    if (w) { e.preventDefault(); e.stopPropagation(); show(w.dataset.word, w.closest('.ll-sub-target')?.textContent || '', w); return; }
+    if (w) { e.preventDefault(); e.stopPropagation(); show(w.dataset.word, w.closest('.ll-sub-target')?.querySelector('.ll-sub-text')?.textContent || '', w); return; }
     if (popup && !e.target.closest('#ll-word-popup')) hide();
   });
 
