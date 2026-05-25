@@ -22,39 +22,27 @@ async function callGroq(systemPrompt, userPrompt, maxTokens = 150) {
 }
 
 async function translate(word, context, tLang, nLang) {
-  const result = await callGroq(
-    `Concise dictionary. Translate from ${tLang} to ${nLang}. ONLY the translation, nothing else. Pick the meaning that fits the context.`,
-    `Word: "${word}"\nContext: "${context}"`, 100);
+  const result = await callGroq(`Concise dictionary. Translate from ${tLang} to ${nLang}. ONLY the translation. Pick the meaning that fits the context.`, `Word: "${word}"\nContext: "${context}"`, 100);
   return { translation: result || '⚠ Configura tu API key en el popup' };
 }
 
 async function explain(word, context, tLang, nLang) {
-  const result = await callGroq(
-    `You are a language tutor helping a ${nLang} speaker learn ${tLang}. Respond in JSON format only, no markdown, no backticks. The JSON must have these fields:
-- "translation": the word's translation in this specific context (in ${nLang})
-- "grammar": a brief grammar note if relevant in ${nLang}, or empty string
-- "examples": array of 2-3 example sentences using the word in ${tLang}, each with "sentence" and "translation" fields
-- "tip": one short practical tip in ${nLang}, or empty string`,
-    `Word: "${word}"\nSentence context: "${context}"`, 500);
+  const result = await callGroq(`You are a language tutor helping a ${nLang} speaker learn ${tLang}. Respond in JSON only, no markdown, no backticks. Fields: "translation" (in ${nLang}), "grammar" (in ${nLang}, or ""), "examples" (array of 2-3 with "sentence" in ${tLang} and "translation" in ${nLang}), "tip" (in ${nLang}, or "")`, `Word: "${word}"\nContext: "${context}"`, 500);
   try { if (result) return { explanation: JSON.parse(result) }; } catch (e) { return { explanation: { translation: result, grammar: '', examples: [], tip: '' } }; }
   return { explanation: null };
 }
 
 async function generateClozeHint(word, sentence, targetLang) {
-  const result = await callGroq(
-    `You are creating a vocabulary exercise in ${targetLang}. The student must guess a hidden word from a sentence. Give a short, clear definition or description of the word IN ${targetLang} (not a translation to another language). Keep it to one sentence. Do not include the word itself or any direct form of it. Output ONLY the hint, nothing else.`,
-    `Hidden word: "${word}"\nFull sentence: "${sentence}"`, 100);
+  const result = await callGroq(`You are creating a vocabulary exercise in ${targetLang}. Give a short, clear definition of the hidden word IN ${targetLang}. Do not include the word itself. One sentence only. Output ONLY the hint.`, `Hidden word: "${word}"\nFull sentence: "${sentence}"`, 100);
   return { hint: result || null };
 }
 
 // --- SRS ---
 const SRS_INTERVALS = [[0.17,1,4,24],[1,8,24,72],[24,48,72,168],[72,168,336,720],[168,336,720,1440]];
-function getSrsInterval(level, quality) {
-  const row = SRS_INTERVALS[Math.min(level, SRS_INTERVALS.length - 1)];
-  return row[quality] * 3600000;
-}
+function getSrsInterval(level, quality) { return SRS_INTERVALS[Math.min(level, SRS_INTERVALS.length - 1)][quality] * 3600000; }
 function initSrsData(item) {
   if (!item.srs) item.srs = { level: 0, nextReview: item.timestamp || Date.now(), lastReview: null, reviews: 0, streak: 0 };
+  if (!item.mastery) item.mastery = { clozeStreak: 0, reorderStreak: 0, clozeMastered: false, reorderMastered: false };
   return item;
 }
 
@@ -89,9 +77,48 @@ async function reviewWord(data) {
       if (data.quality === 0) { item.srs.level = 0; item.srs.streak = 0; }
       else { if (data.quality >= 2) item.srs.level = Math.min(item.srs.level + 1, SRS_INTERVALS.length - 1); item.srs.streak++; }
       item.srs.nextReview = Date.now() + getSrsInterval(item.srs.level, data.quality);
-      item.srs.lastReview = Date.now();
-      item.srs.reviews++;
+      item.srs.lastReview = Date.now(); item.srs.reviews++;
       chrome.storage.local.set({ vocabulary: v }, () => resolve({ success: true }));
+    });
+  });
+}
+
+async function updateMastery(data) {
+  // data: { word, targetLang, timestamp, mode: 'cloze'|'reorder', correct: bool }
+  return new Promise(resolve => {
+    chrome.storage.local.get(['vocabulary'], r => {
+      const v = r.vocabulary || [];
+      const item = v.find(x => x.word === data.word && x.targetLang === data.targetLang && x.timestamp === data.timestamp);
+      if (!item) return resolve({ success: false });
+      initSrsData(item);
+      const m = item.mastery;
+      if (data.mode === 'cloze') {
+        m.clozeStreak = data.correct ? m.clozeStreak + 1 : 0;
+        if (m.clozeStreak >= 3) m.clozeMastered = true;
+      } else if (data.mode === 'reorder') {
+        m.reorderStreak = data.correct ? m.reorderStreak + 1 : 0;
+        if (m.reorderStreak >= 3) m.reorderMastered = true;
+      }
+      chrome.storage.local.set({ vocabulary: v }, () => resolve({
+        success: true, mastery: m,
+        justMastered: (data.mode === 'cloze' && m.clozeMastered && m.clozeStreak === 3) ||
+                      (data.mode === 'reorder' && m.reorderMastered && m.reorderStreak === 3),
+      }));
+    });
+  });
+}
+
+async function resetMastery(data) {
+  return new Promise(resolve => {
+    chrome.storage.local.get(['vocabulary'], r => {
+      const v = r.vocabulary || [];
+      const item = v.find(x => x.word === data.word && x.targetLang === data.targetLang && x.timestamp === data.timestamp);
+      if (!item) return resolve({ success: false });
+      initSrsData(item);
+      if (data.mode === 'cloze') { item.mastery.clozeMastered = false; item.mastery.clozeStreak = 0; }
+      else if (data.mode === 'reorder') { item.mastery.reorderMastered = false; item.mastery.reorderStreak = 0; }
+      else { item.mastery = { clozeStreak: 0, reorderStreak: 0, clozeMastered: false, reorderMastered: false }; }
+      chrome.storage.local.set({ vocabulary: v }, () => { chrome.runtime.sendMessage({ type: 'VOCAB_UPDATED' }).catch(() => {}); resolve({ success: true }); });
     });
   });
 }
@@ -118,6 +145,8 @@ chrome.runtime.onMessage.addListener((msg, _, reply) => {
     case 'SAVE_WORD': saveWord(msg).then(reply); return true;
     case 'DELETE_WORD': deleteWord(msg).then(reply); return true;
     case 'REVIEW_WORD': reviewWord(msg).then(reply); return true;
+    case 'UPDATE_MASTERY': updateMastery(msg).then(reply); return true;
+    case 'RESET_MASTERY': resetMastery(msg).then(reply); return true;
     case 'GET_DUE_CARDS': getDueCards().then(reply); return true;
     case 'GET_VOCABULARY': chrome.storage.local.get(['vocabulary'], r => reply({ vocabulary: r.vocabulary || [] })); return true;
     case 'EXPORT_VOCABULARY': chrome.storage.local.get(['vocabulary'], r => { const v = r.vocabulary||[]; reply({ csv: toCSV(v), anki: toAnki(v) }); }); return true;
@@ -126,5 +155,4 @@ chrome.runtime.onMessage.addListener((msg, _, reply) => {
     case 'SAVE_API_KEY': chrome.storage.sync.set({ groqApiKey: msg.key }, () => reply({ success: true })); return true;
   }
 });
-
 console.log('[LL] Service worker ready');

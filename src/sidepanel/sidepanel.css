@@ -318,3 +318,24 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
   border-radius: 8px; font-size: 13px; color: #c4b5fd; line-height: 1.5; text-align: left;
 }
 .ll-cloze-hint-icon { margin-right: 4px; }
+
+/* Mastered section in vocabulary */
+.ll-vocab-mastered-section { margin-top: 16px; }
+.ll-vocab-mastered-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; background: rgba(52,211,153,0.05); border: 1px solid rgba(52,211,153,0.15);
+  border-radius: 8px; cursor: pointer; font-size: 13px; color: #34d399; font-weight: 500;
+  transition: all 0.15s;
+}
+.ll-vocab-mastered-header:hover { background: rgba(52,211,153,0.1); }
+.ll-mastered-arrow { font-size: 14px; }
+.ll-vocab-mastered-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ll-vocab-card-mastered { opacity: 0.7; border-color: rgba(52,211,153,0.15); }
+.ll-vocab-card-mastered:hover { opacity: 1; }
+.ll-vocab-footer-actions { display: flex; gap: 4px; }
+.ll-vocab-unpractice {
+  background: none; border: none; cursor: pointer; font-size: 12px;
+  padding: 2px 6px; border-radius: 4px; transition: all 0.15s; opacity: 0;
+}
+.ll-vocab-card:hover .ll-vocab-unpractice { opacity: 1; }
+.ll-vocab-unpractice:hover { background: rgba(251,146,60,0.1); }

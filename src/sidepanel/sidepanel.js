@@ -1,18 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('ll-panel-close').addEventListener('click', () => window.close());
-
   const tabs = document.querySelectorAll('.ll-tab');
   const tabContents = document.querySelectorAll('.ll-tab-content');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('ll-tab-active'));
-      tabContents.forEach(c => c.classList.remove('ll-tab-visible'));
-      tab.classList.add('ll-tab-active');
-      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('ll-tab-visible');
-      if (tab.dataset.tab === 'vocabulary') loadVocabulary();
-      if (tab.dataset.tab === 'practice') showPracticeModes();
-    });
-  });
+  tabs.forEach(tab => { tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('ll-tab-active')); tabContents.forEach(c => c.classList.remove('ll-tab-visible'));
+    tab.classList.add('ll-tab-active'); document.getElementById(`tab-${tab.dataset.tab}`).classList.add('ll-tab-visible');
+    if (tab.dataset.tab === 'vocabulary') loadVocabulary(); if (tab.dataset.tab === 'practice') showPracticeModes();
+  }); });
 
   // ===== TRANSCRIPT =====
   const transcriptList = document.getElementById('ll-transcript');
@@ -20,291 +14,242 @@ document.addEventListener('DOMContentLoaded', () => {
   const transcriptCount = document.getElementById('ll-transcript-count');
   const autoscrollBtn = document.getElementById('ll-transcript-autoscroll');
   function fmt(s) { return `${Math.floor(s/60)}:${(Math.floor(s)%60).toString().padStart(2,'0')}`; }
-  const seenTexts = new Set();
-  let entryCount = 0, autoScroll = true, ignoreScrollEvents = false;
-
-  transcriptList.addEventListener('wheel', (e) => {
-    if (e.deltaY < 0 && autoScroll) { autoScroll = false; updateAutoscrollBtn(); }
-    if (e.deltaY > 0 && !autoScroll) { setTimeout(() => { if (transcriptList.scrollHeight - transcriptList.scrollTop - transcriptList.clientHeight < 60) { autoScroll = true; updateAutoscrollBtn(); } }, 50); }
-  });
-  autoscrollBtn.addEventListener('click', () => { autoScroll = !autoScroll; updateAutoscrollBtn(); if (autoScroll) doAutoScroll(); });
-  function doAutoScroll() { ignoreScrollEvents = true; transcriptList.scrollTop = transcriptList.scrollHeight; setTimeout(() => { ignoreScrollEvents = false; }, 100); }
-  function updateAutoscrollBtn() { autoscrollBtn.className = autoScroll ? 'll-transcript-autoscroll ll-autoscroll-on' : 'll-transcript-autoscroll ll-autoscroll-off'; autoscrollBtn.textContent = autoScroll ? '⬇ Auto' : '⏸ Auto'; }
-  function updateToolbar() { transcriptToolbar.style.display = entryCount > 0 ? 'flex' : 'none'; transcriptCount.textContent = `${entryCount} frases`; }
-  function clearTranscript() { seenTexts.clear(); entryCount = 0; transcriptList.innerHTML = '<p class="ll-empty-state">Transcripción limpiada.</p>'; updateToolbar(); }
-  document.getElementById('ll-transcript-clear').addEventListener('click', clearTranscript);
-  function seekTo(t) { chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => { if (tab) chrome.tabs.sendMessage(tab.id, { type: 'SEEK_TO', timeMs: t * 1000 }); }); }
-
-  function renderAiExplanation(aiDiv, data) {
-    if (!data) { aiDiv.textContent = 'Configura tu API key en el popup'; return; }
-    let html = '';
-    if (data.translation) html += `<div class="ll-vocab-ai-translation">${data.translation}</div>`;
-    if (data.grammar) html += `<div class="ll-vocab-ai-grammar">${data.grammar}</div>`;
-    if (data.examples?.length) { html += '<div class="ll-vocab-ai-examples">'; data.examples.forEach(ex => { html += `<div class="ll-vocab-ai-example"><div class="ll-vocab-ai-sentence">${ex.sentence}</div><div class="ll-vocab-ai-trans">${ex.translation}</div></div>`; }); html += '</div>'; }
-    if (data.tip) html += `<div class="ll-vocab-ai-tip">💡 ${data.tip}</div>`;
-    aiDiv.innerHTML = html;
+  const seenTexts = new Set(); let entryCount = 0, autoScroll = true;
+  transcriptList.addEventListener('wheel', (e) => { if (e.deltaY<0&&autoScroll){autoScroll=false;updateAB();} if(e.deltaY>0&&!autoScroll){setTimeout(()=>{if(transcriptList.scrollHeight-transcriptList.scrollTop-transcriptList.clientHeight<60){autoScroll=true;updateAB();}},50);} });
+  autoscrollBtn.addEventListener('click', () => { autoScroll=!autoScroll; updateAB(); if(autoScroll)doAS(); });
+  function doAS() { transcriptList.scrollTop=transcriptList.scrollHeight; }
+  function updateAB() { autoscrollBtn.className=autoScroll?'ll-transcript-autoscroll ll-autoscroll-on':'ll-transcript-autoscroll ll-autoscroll-off'; autoscrollBtn.textContent=autoScroll?'⬇ Auto':'⏸ Auto'; }
+  function updateTB() { transcriptToolbar.style.display=entryCount>0?'flex':'none'; transcriptCount.textContent=`${entryCount} frases`; }
+  document.getElementById('ll-transcript-clear').addEventListener('click', () => { seenTexts.clear();entryCount=0;transcriptList.innerHTML='<p class="ll-empty-state">Transcripción limpiada.</p>';updateTB(); });
+  function seekTo(t) { chrome.tabs.query({active:true,currentWindow:true},([tab])=>{if(tab)chrome.tabs.sendMessage(tab.id,{type:'SEEK_TO',timeMs:t*1000});}); }
+  function renderAi(d,a) { if(!a){d.textContent='Configura tu API key';return;} let h=''; if(a.translation)h+=`<div class="ll-vocab-ai-translation">${a.translation}</div>`; if(a.grammar)h+=`<div class="ll-vocab-ai-grammar">${a.grammar}</div>`; if(a.examples?.length){h+='<div class="ll-vocab-ai-examples">';a.examples.forEach(e=>{h+=`<div class="ll-vocab-ai-example"><div class="ll-vocab-ai-sentence">${e.sentence}</div><div class="ll-vocab-ai-trans">${e.translation}</div></div>`;});h+='</div>';} if(a.tip)h+=`<div class="ll-vocab-ai-tip">💡 ${a.tip}</div>`; d.innerHTML=h; }
+  function reqExplain(w,c,d) { if(d.style.display==='block'){d.style.display='none';return;} d.style.display='block';d.innerHTML='<span class="ll-vocab-loading">Pensando...</span>'; chrome.runtime.sendMessage({type:'AI_EXPLAIN',word:w,context:c||'',targetLang:'en',nativeLang:'es'},r=>renderAi(d,r?.explanation)); }
+  function addTE(target,native,time) {
+    if(seenTexts.has(target))return; seenTexts.add(target);entryCount++;
+    const e=document.createElement('div');e.className='ll-transcript-entry';
+    e.innerHTML=`<div class="ll-transcript-entry-header"><span class="ll-transcript-time">${fmt(time)}</span><button class="ll-transcript-save">⭐</button></div><div class="ll-transcript-target">${target}</div>${native?`<div class="ll-transcript-native">${native}</div>`:''}<div class="ll-transcript-entry-footer"><button class="ll-transcript-explain">🧠</button></div><div class="ll-transcript-ai" style="display:none"></div>`;
+    e.addEventListener('click',ev=>{if(!ev.target.closest('.ll-transcript-save')&&!ev.target.closest('.ll-transcript-explain'))seekTo(time);});
+    e.querySelector('.ll-transcript-save').addEventListener('click',ev=>{ev.stopPropagation();const b=ev.target;chrome.runtime.sendMessage({type:'SAVE_WORD',word:target,translation:native||'',context:'',targetLang:'',timestamp:Date.now()},r=>{if(r?.success){b.textContent=r.duplicate?'⚠':'✅';b.disabled=true;setTimeout(()=>{b.textContent='⭐';b.disabled=false;},2000);}});});
+    e.querySelector('.ll-transcript-explain').addEventListener('click',ev=>{ev.stopPropagation();reqExplain(target,'',e.querySelector('.ll-transcript-ai'));});
+    const es=transcriptList.querySelector('.ll-empty-state');if(es)es.remove();
+    transcriptList.appendChild(e);if(autoScroll)doAS();updateTB();
   }
-  function requestExplain(word, context, aiDiv) {
-    if (aiDiv.style.display === 'block') { aiDiv.style.display = 'none'; return; }
-    aiDiv.style.display = 'block'; aiDiv.innerHTML = '<span class="ll-vocab-loading">Pensando...</span>';
-    chrome.runtime.sendMessage({ type: 'AI_EXPLAIN', word, context: context || '', targetLang: 'en', nativeLang: 'es' }, res => renderAiExplanation(aiDiv, res?.explanation));
-  }
-
-  function addTranscriptEntry(target, native, time) {
-    if (seenTexts.has(target)) return; seenTexts.add(target); entryCount++;
-    const entry = document.createElement('div'); entry.className = 'll-transcript-entry';
-    entry.innerHTML = `<div class="ll-transcript-entry-header"><span class="ll-transcript-time">${fmt(time)}</span><button class="ll-transcript-save" title="Guardar frase">⭐</button></div><div class="ll-transcript-target">${target}</div>${native ? `<div class="ll-transcript-native">${native}</div>` : ''}<div class="ll-transcript-entry-footer"><button class="ll-transcript-explain" title="Explicar">🧠</button></div><div class="ll-transcript-ai" style="display:none"></div>`;
-    entry.addEventListener('click', (e) => { if (!e.target.closest('.ll-transcript-save') && !e.target.closest('.ll-transcript-explain')) seekTo(time); });
-    entry.querySelector('.ll-transcript-save').addEventListener('click', (e) => { e.stopPropagation(); const btn = e.target; chrome.runtime.sendMessage({ type: 'SAVE_WORD', word: target, translation: native || '', context: '', targetLang: '', timestamp: Date.now() }, res => { if (res?.success) { btn.textContent = res.duplicate ? '⚠' : '✅'; btn.disabled = true; setTimeout(() => { btn.textContent = '⭐'; btn.disabled = false; }, 2000); } }); });
-    entry.querySelector('.ll-transcript-explain').addEventListener('click', (e) => { e.stopPropagation(); requestExplain(target, '', entry.querySelector('.ll-transcript-ai')); });
-    const es = transcriptList.querySelector('.ll-empty-state'); if (es) es.remove();
-    transcriptList.appendChild(entry); if (autoScroll) doAutoScroll(); updateToolbar();
-  }
-
-  chrome.runtime.onMessage.addListener(msg => {
-    if (msg.type === 'CAPTION_UPDATE') addTranscriptEntry(msg.target || '', msg.native || '', msg.time || 0);
-    if (msg.type === 'VOCAB_UPDATED') loadVocabulary();
-  });
+  chrome.runtime.onMessage.addListener(msg=>{if(msg.type==='CAPTION_UPDATE')addTE(msg.target||'',msg.native||'',msg.time||0);if(msg.type==='VOCAB_UPDATED')loadVocabulary();});
 
   // ===== VOCABULARY =====
-  const vocabList = document.getElementById('ll-vocab-list');
-  let allVocab = [];
+  const vocabList=document.getElementById('ll-vocab-list');let allVocab=[];
   function renderVocab(vocab) {
-    if (!vocab.length) { vocabList.innerHTML = '<p class="ll-empty-state">Guarda palabras con ⭐</p>'; return; }
+    if(!vocab.length){vocabList.innerHTML='<p class="ll-empty-state">Guarda palabras con ⭐</p>';return;}
+    // Split into active and mastered
+    const active = vocab.filter(x => !x.mastery?.clozeMastered || !x.mastery?.reorderMastered);
+    const mastered = vocab.filter(x => x.mastery?.clozeMastered && x.mastery?.reorderMastered);
     vocabList.innerHTML = '';
-    [...vocab].sort((a,b) => (b.timestamp||0) - (a.timestamp||0)).forEach(item => {
-      const card = document.createElement('div'); card.className = 'll-vocab-card';
-      const date = item.timestamp ? new Date(item.timestamp).toLocaleDateString('es-CO', { day:'numeric', month:'short' }) : '';
-      card.innerHTML = `<div class="ll-vocab-card-header"><div class="ll-vocab-word">${item.word}</div><button class="ll-vocab-delete" title="Eliminar">✕</button></div><div class="ll-vocab-translation">${item.translation || ''}</div>${item.context ? `<div class="ll-vocab-context">"${item.context}"</div>` : ''}<div class="ll-vocab-card-footer">${date ? `<span class="ll-vocab-date">${date}</span>` : ''}<button class="ll-vocab-explain" title="Explicar">🧠</button></div><div class="ll-vocab-ai" style="display:none"></div>`;
-      card.querySelector('.ll-vocab-explain').addEventListener('click', (e) => { e.stopPropagation(); requestExplain(item.word, item.context || '', card.querySelector('.ll-vocab-ai')); });
-      card.querySelector('.ll-vocab-delete').addEventListener('click', (e) => { e.stopPropagation(); chrome.runtime.sendMessage({ type: 'DELETE_WORD', word: item.word, targetLang: item.targetLang, timestamp: item.timestamp }, () => loadVocabulary()); });
-      vocabList.appendChild(card);
-    });
+    
+    [...active].sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).forEach(item => renderVocabCard(item, false));
+    
+    if (mastered.length) {
+      const section = document.createElement('div');
+      section.className = 'll-vocab-mastered-section';
+      section.innerHTML = `<div class="ll-vocab-mastered-header" id="ll-mastered-toggle"><span>🏆 Aprendidas (${mastered.length})</span><span class="ll-mastered-arrow">▸</span></div><div class="ll-vocab-mastered-list" id="ll-mastered-list" style="display:none"></div>`;
+      vocabList.appendChild(section);
+      
+      const list = section.querySelector('#ll-mastered-list');
+      const header = section.querySelector('#ll-mastered-toggle');
+      const arrow = section.querySelector('.ll-mastered-arrow');
+      header.addEventListener('click', () => {
+        const open = list.style.display === 'none';
+        list.style.display = open ? 'flex' : 'none';
+        arrow.textContent = open ? '▾' : '▸';
+      });
+      
+      [...mastered].sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).forEach(item => {
+        const card = renderVocabCard(item, true);
+        list.appendChild(card);
+      });
+    }
   }
-  function loadVocabulary() { chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, res => { allVocab = res?.vocabulary || []; renderVocab(allVocab); }); }
-  document.getElementById('ll-vocab-search').addEventListener('input', (e) => { const q = e.target.value.toLowerCase().trim(); renderVocab(q ? allVocab.filter(v => v.word.toLowerCase().includes(q) || (v.translation||'').toLowerCase().includes(q)) : allVocab); });
-  function download(c, f, t) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([c], { type: t })); a.download = f; a.click(); }
-  document.getElementById('ll-export-csv').addEventListener('click', () => { chrome.runtime.sendMessage({ type: 'EXPORT_VOCABULARY' }, r => { if (r?.csv) download(r.csv, 'lingualens-vocab.csv', 'text/csv'); }); });
-  document.getElementById('ll-export-anki').addEventListener('click', () => { chrome.runtime.sendMessage({ type: 'EXPORT_VOCABULARY' }, r => { if (r?.anki) download(r.anki, 'lingualens-anki.txt', 'text/plain'); }); });
+  
+  function renderVocabCard(item, isMastered) {
+    const card=document.createElement('div');card.className='ll-vocab-card' + (isMastered ? ' ll-vocab-card-mastered' : '');
+    const date=item.timestamp?new Date(item.timestamp).toLocaleDateString('es-CO',{day:'numeric',month:'short'}):'';
+    const masteryBadges = [];
+    if (item.mastery?.clozeMastered) masteryBadges.push('✏️');
+    if (item.mastery?.reorderMastered) masteryBadges.push('🔀');
+    
+    card.innerHTML=`<div class="ll-vocab-card-header"><div class="ll-vocab-word">${item.word}</div><button class="ll-vocab-delete">✕</button></div>
+      <div class="ll-vocab-translation">${item.translation||''}</div>
+      ${item.context?`<div class="ll-vocab-context">"${item.context}"</div>`:''}
+      <div class="ll-vocab-card-footer">
+        ${date?`<span class="ll-vocab-date">${date} ${masteryBadges.join('')}</span>`:''}
+        <div class="ll-vocab-footer-actions">
+          ${isMastered ? '<button class="ll-vocab-unpractice" title="Volver a practicar">↩</button>' : ''}
+          <button class="ll-vocab-explain">🧠</button>
+        </div>
+      </div>
+      <div class="ll-vocab-ai" style="display:none"></div>`;
+    card.querySelector('.ll-vocab-explain').addEventListener('click',e=>{e.stopPropagation();reqExplain(item.word,item.context||'',card.querySelector('.ll-vocab-ai'));});
+    card.querySelector('.ll-vocab-delete').addEventListener('click',e=>{e.stopPropagation();chrome.runtime.sendMessage({type:'DELETE_WORD',word:item.word,targetLang:item.targetLang,timestamp:item.timestamp},()=>loadVocabulary());});
+    if (isMastered) {
+      card.querySelector('.ll-vocab-unpractice')?.addEventListener('click', e => {
+        e.stopPropagation();
+        chrome.runtime.sendMessage({ type: 'RESET_MASTERY', word: item.word, targetLang: item.targetLang, timestamp: item.timestamp }, () => loadVocabulary());
+      });
+    }
+    vocabList.appendChild(card);
+    return card;
+  }
+  
+  function loadVocabulary(){chrome.runtime.sendMessage({type:'GET_VOCABULARY'},r=>{allVocab=r?.vocabulary||[];renderVocab(allVocab);});}
+  document.getElementById('ll-vocab-search').addEventListener('input',e=>{const q=e.target.value.toLowerCase().trim();renderVocab(q?allVocab.filter(v=>v.word.toLowerCase().includes(q)||(v.translation||'').toLowerCase().includes(q)):allVocab);});
+  function download(c,f,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=f;a.click();}
+  document.getElementById('ll-export-csv').addEventListener('click',()=>{chrome.runtime.sendMessage({type:'EXPORT_VOCABULARY'},r=>{if(r?.csv)download(r.csv,'lingualens-vocab.csv','text/csv');});});
+  document.getElementById('ll-export-anki').addEventListener('click',()=>{chrome.runtime.sendMessage({type:'EXPORT_VOCABULARY'},r=>{if(r?.anki)download(r.anki,'lingualens-anki.txt','text/plain');});});
 
   // ===== PRACTICE =====
-  const practiceContainer = document.getElementById('ll-practice');
-  const SRS_INTERVALS = [[0.17,1,4,24],[1,8,24,72],[24,48,72,168],[72,168,336,720],[168,336,720,1440]];
-  function getSrsPreview(card, q) { let lv = card.srs?.level||0; if(q===0)lv=0;else if(q>=2)lv=Math.min(lv+1,SRS_INTERVALS.length-1); return SRS_INTERVALS[Math.min(lv,SRS_INTERVALS.length-1)][q]*3600000; }
-  function fmtTime(ms) { const h=ms/3600000; if(h<1)return`${Math.round(h*60)} min`;if(h<24)return`${Math.round(h)} h`;if(h<168)return`${Math.round(h/24)} días`;return`${Math.round(h/168)} sem`; }
-  function shuffle(arr) { const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a; }
+  const P = document.getElementById('ll-practice');
+  const SRS = [[.17,1,4,24],[1,8,24,72],[24,48,72,168],[72,168,336,720],[168,336,720,1440]];
+  function srsP(c,q){let l=c.srs?.level||0;if(q===0)l=0;else if(q>=2)l=Math.min(l+1,SRS.length-1);return SRS[Math.min(l,SRS.length-1)][q]*3600000;}
+  function fT(ms){const h=ms/3600000;if(h<1)return`${Math.round(h*60)} min`;if(h<24)return`${Math.round(h)} h`;if(h<168)return`${Math.round(h/24)} días`;return`${Math.round(h/168)} sem`;}
+  function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
 
   function showPracticeModes() {
-    chrome.runtime.sendMessage({ type: 'GET_DUE_CARDS' }, res => {
-      const stats = res?.stats || { total:0, due:0, learned:0, newCards:0 };
-      if (stats.total === 0) { practiceContainer.innerHTML = `<div class="ll-practice-empty"><div class="ll-practice-empty-icon">📚</div><div class="ll-practice-empty-title">No hay palabras guardadas</div><div class="ll-practice-empty-text">Guarda palabras y frases mientras ves videos.</div></div>`; return; }
-      chrome.runtime.sendMessage({ type: 'GET_VOCABULARY' }, vRes => {
-        const allWords = vRes?.vocabulary || [];
-        const clozeCount = allWords.filter(w => w.context || w.word.split(/\s+/).length > 3).length;
-        const reorderCount = allWords.filter(w => w.word.split(/\s+/).length > 3).length;
-        practiceContainer.innerHTML = `
-          <div class="ll-practice-menu">
-            <div class="ll-practice-stats-bar">
-              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.due}</span> pendientes</div>
-              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.learned}</span> aprendidas</div>
-              <div class="ll-practice-stat-mini"><span class="ll-stat-num">${stats.total}</span> total</div>
-            </div>
-            <div class="ll-practice-modes">
-              <button class="ll-mode-card" id="ll-mode-flashcard"><span class="ll-mode-icon">🃏</span><div><span class="ll-mode-title">Flashcards</span><br><span class="ll-mode-desc">Traducción con repetición espaciada</span></div>${stats.due > 0 ? `<span class="ll-mode-badge">${stats.due}</span>` : '<span class="ll-mode-badge ll-badge-done">✓</span>'}</button>
-              <button class="ll-mode-card" id="ll-mode-cloze"><span class="ll-mode-icon">✏️</span><div><span class="ll-mode-title">Completar frase</span><br><span class="ll-mode-desc">Adivina la palabra con pistas en inglés</span></div><span class="ll-mode-badge">${clozeCount}</span></button>
-              <button class="ll-mode-card" id="ll-mode-reorder"><span class="ll-mode-icon">🔀</span><div><span class="ll-mode-title">Ordenar frase</span><br><span class="ll-mode-desc">Reconstruye la oración correcta</span></div><span class="ll-mode-badge">${reorderCount}</span></button>
-            </div>
-          </div>`;
-        document.getElementById('ll-mode-flashcard').addEventListener('click', startFlashcards);
-        document.getElementById('ll-mode-cloze').addEventListener('click', () => startCloze(allWords));
-        document.getElementById('ll-mode-reorder').addEventListener('click', () => startReorder(allWords));
+    chrome.runtime.sendMessage({type:'GET_DUE_CARDS'},res=>{
+      const s=res?.stats||{total:0,due:0,learned:0,newCards:0};
+      if(!s.total){P.innerHTML='<div class="ll-practice-empty"><div class="ll-practice-empty-icon">📚</div><div class="ll-practice-empty-title">No hay palabras guardadas</div></div>';return;}
+      chrome.runtime.sendMessage({type:'GET_VOCABULARY'},vr=>{
+        const aw=vr?.vocabulary||[];
+        const clozeAvail=aw.filter(w=>(w.context||w.word.split(/\s+/).length>3)&&!w.mastery?.clozeMastered).length;
+        const clozeMastered=aw.filter(w=>w.mastery?.clozeMastered).length;
+        const reorderAvail=aw.filter(w=>w.word.split(/\s+/).length>3&&!w.mastery?.reorderMastered).length;
+        const reorderMastered=aw.filter(w=>w.mastery?.reorderMastered).length;
+        P.innerHTML=`<div class="ll-practice-menu">
+          <div class="ll-practice-stats-bar">
+            <div class="ll-practice-stat-mini"><span class="ll-stat-num">${s.due}</span> pendientes</div>
+            <div class="ll-practice-stat-mini"><span class="ll-stat-num">${s.learned}</span> aprendidas</div>
+            <div class="ll-practice-stat-mini"><span class="ll-stat-num">${s.total}</span> total</div>
+          </div>
+          <div class="ll-practice-modes">
+            <button class="ll-mode-card" id="ll-mode-flashcard"><span class="ll-mode-icon">🃏</span><div><span class="ll-mode-title">Flashcards</span><br><span class="ll-mode-desc">Traducción con repetición espaciada</span></div>${s.due>0?`<span class="ll-mode-badge">${s.due}</span>`:'<span class="ll-mode-badge ll-badge-done">✓</span>'}</button>
+            <button class="ll-mode-card" id="ll-mode-cloze"><span class="ll-mode-icon">✏️</span><div><span class="ll-mode-title">Completar frase</span><br><span class="ll-mode-desc">3 aciertos seguidos = dominada</span></div><span class="ll-mode-badge">${clozeAvail}</span>${clozeMastered?`<span class="ll-mode-badge ll-badge-done">🏆${clozeMastered}</span>`:''}</button>
+            <button class="ll-mode-card" id="ll-mode-reorder"><span class="ll-mode-icon">🔀</span><div><span class="ll-mode-title">Ordenar frase</span><br><span class="ll-mode-desc">3 aciertos seguidos = dominada</span></div><span class="ll-mode-badge">${reorderAvail}</span>${reorderMastered?`<span class="ll-mode-badge ll-badge-done">🏆${reorderMastered}</span>`:''}</button>
+          </div>
+        </div>`;
+        document.getElementById('ll-mode-flashcard').addEventListener('click',startFC);
+        document.getElementById('ll-mode-cloze').addEventListener('click',()=>startCloze(aw));
+        document.getElementById('ll-mode-reorder').addEventListener('click',()=>startReorder(aw));
       });
     });
   }
 
   // ===== FLASHCARDS =====
-  let dueCards = [], currentCardIndex = 0;
-  function startFlashcards() {
-    chrome.runtime.sendMessage({ type: 'GET_DUE_CARDS' }, res => {
-      dueCards = res?.cards || []; currentCardIndex = 0;
-      if (!dueCards.length) { practiceContainer.innerHTML = `<div class="ll-practice-done"><div class="ll-practice-done-icon">🎉</div><div class="ll-practice-done-title">¡Todo al día!</div><button class="ll-back-btn" id="ll-back-modes">← Volver</button></div>`; document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes); return; }
-      renderFlashcard();
-    });
-  }
-  function renderFlashcard() {
-    if (currentCardIndex >= dueCards.length) { showPracticeModes(); return; }
-    const card = dueCards[currentCardIndex]; const remaining = dueCards.length - currentCardIndex;
-    practiceContainer.innerHTML = `
-      <div class="ll-practice-header"><button class="ll-back-btn" id="ll-back-modes">←</button><span class="ll-practice-remaining">${remaining} pendiente${remaining!==1?'s':''}</span><span class="ll-practice-level">Nivel ${card.srs?.level||0}</span></div>
-      <div class="ll-flashcard"><div class="ll-flashcard-label">${card.word.split(/\s+/).length>3?'Frase':'Palabra'}</div><div class="ll-flashcard-word">${card.word}</div>${card.context?`<div class="ll-flashcard-context">"${card.context}"</div>`:''}<div id="ll-flashcard-back" style="display:none"><div class="ll-flashcard-divider"></div><div class="ll-flashcard-translation">${card.translation||'(sin traducción)'}</div></div><button class="ll-flashcard-reveal" id="ll-flashcard-reveal">Mostrar traducción</button></div>
-      <div class="ll-practice-buttons" id="ll-practice-buttons" style="display:none">
-        <button class="ll-practice-btn ll-btn-again" data-quality="0"><span class="ll-btn-label">Otra vez</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,0))}</span></button>
-        <button class="ll-practice-btn ll-btn-hard" data-quality="1"><span class="ll-btn-label">Difícil</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,1))}</span></button>
-        <button class="ll-practice-btn ll-btn-good" data-quality="2"><span class="ll-btn-label">Bien</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,2))}</span></button>
-        <button class="ll-practice-btn ll-btn-easy" data-quality="3"><span class="ll-btn-label">Fácil</span><span class="ll-btn-time">${fmtTime(getSrsPreview(card,3))}</span></button>
-      </div>`;
-    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
-    document.getElementById('ll-flashcard-reveal').addEventListener('click', () => { document.getElementById('ll-flashcard-back').style.display='block'; document.getElementById('ll-flashcard-reveal').style.display='none'; document.getElementById('ll-practice-buttons').style.display='flex'; });
-    document.querySelectorAll('.ll-practice-btn').forEach(btn => { btn.addEventListener('click', () => { chrome.runtime.sendMessage({ type:'REVIEW_WORD', word:dueCards[currentCardIndex].word, targetLang:dueCards[currentCardIndex].targetLang, timestamp:dueCards[currentCardIndex].timestamp, quality:parseInt(btn.dataset.quality) }, () => { currentCardIndex++; renderFlashcard(); }); }); });
+  let dc=[],ci=0;
+  function startFC(){chrome.runtime.sendMessage({type:'GET_DUE_CARDS'},r=>{dc=r?.cards||[];ci=0;if(!dc.length){P.innerHTML='<div class="ll-practice-done"><div class="ll-practice-done-icon">🎉</div><div class="ll-practice-done-title">¡Todo al día!</div><button class="ll-back-btn" id="ll-back">← Volver</button></div>';document.getElementById('ll-back').addEventListener('click',showPracticeModes);return;}rFC();});}
+  function rFC(){
+    if(ci>=dc.length){showPracticeModes();return;}const c=dc[ci],rem=dc.length-ci;
+    P.innerHTML=`<div class="ll-practice-header"><button class="ll-back-btn" id="ll-back">←</button><span class="ll-practice-remaining">${rem} pendiente${rem!==1?'s':''}</span><span class="ll-practice-level">Nivel ${c.srs?.level||0}</span></div>
+      <div class="ll-flashcard"><div class="ll-flashcard-label">${c.word.split(/\s+/).length>3?'Frase':'Palabra'}</div><div class="ll-flashcard-word">${c.word}</div>${c.context?`<div class="ll-flashcard-context">"${c.context}"</div>`:''}<div id="ll-fc-back" style="display:none"><div class="ll-flashcard-divider"></div><div class="ll-flashcard-translation">${c.translation||''}</div></div><button class="ll-flashcard-reveal" id="ll-fc-rev">Mostrar traducción</button></div>
+      <div class="ll-practice-buttons" id="ll-fc-btns" style="display:none"><button class="ll-practice-btn ll-btn-again" data-q="0"><span class="ll-btn-label">Otra vez</span><span class="ll-btn-time">${fT(srsP(c,0))}</span></button><button class="ll-practice-btn ll-btn-hard" data-q="1"><span class="ll-btn-label">Difícil</span><span class="ll-btn-time">${fT(srsP(c,1))}</span></button><button class="ll-practice-btn ll-btn-good" data-q="2"><span class="ll-btn-label">Bien</span><span class="ll-btn-time">${fT(srsP(c,2))}</span></button><button class="ll-practice-btn ll-btn-easy" data-q="3"><span class="ll-btn-label">Fácil</span><span class="ll-btn-time">${fT(srsP(c,3))}</span></button></div>`;
+    document.getElementById('ll-back').addEventListener('click',showPracticeModes);
+    document.getElementById('ll-fc-rev').addEventListener('click',()=>{document.getElementById('ll-fc-back').style.display='block';document.getElementById('ll-fc-rev').style.display='none';document.getElementById('ll-fc-btns').style.display='flex';});
+    document.querySelectorAll('.ll-practice-btn').forEach(b=>{b.addEventListener('click',()=>{chrome.runtime.sendMessage({type:'REVIEW_WORD',word:dc[ci].word,targetLang:dc[ci].targetLang,timestamp:dc[ci].timestamp,quality:parseInt(b.dataset.q)},()=>{ci++;rFC();});});});
   }
 
   // ===== CLOZE =====
-  let clozeCards = [], clozeIndex = 0, clozeScore = { correct:0, total:0 };
-
-  function startCloze(allWords) {
-    const candidates = allWords.filter(w => { const text = w.context || w.word; return text.split(/\s+/).length > 3; });
-    if (!candidates.length) { practiceContainer.innerHTML = `<div class="ll-practice-empty"><div class="ll-practice-empty-icon">✏️</div><div class="ll-practice-empty-title">No hay frases disponibles</div><button class="ll-back-btn" id="ll-back-modes">← Volver</button></div>`; document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes); return; }
-    clozeCards = shuffle(candidates).slice(0, 10);
-    clozeIndex = 0; clozeScore = { correct:0, total:0 };
-    renderCloze();
+  let cz=[],czi=0,czs={c:0,t:0};
+  function startCloze(aw){
+    const cands=aw.filter(w=>(w.context||w.word.split(/\s+/).length>3)&&!w.mastery?.clozeMastered);
+    if(!cands.length){P.innerHTML='<div class="ll-practice-empty"><div class="ll-practice-empty-icon">✏️</div><div class="ll-practice-empty-title">¡Todas las frases dominadas!</div><button class="ll-back-btn" id="ll-back">← Volver</button></div>';document.getElementById('ll-back').addEventListener('click',showPracticeModes);return;}
+    cz=shuf(cands).slice(0,10);czi=0;czs={c:0,t:0};rCZ();
   }
+  function rCZ(){
+    if(czi>=cz.length){const p=czs.t?Math.round(czs.c/czs.t*100):0;P.innerHTML=`<div class="ll-practice-done"><div class="ll-practice-done-icon">✏️</div><div class="ll-practice-done-title">Sesión completada</div><div class="ll-practice-done-text">${czs.c} de ${czs.t} correctas (${p}%)</div><div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${p}%"></div></div><button class="ll-back-btn" id="ll-back">← Volver</button></div>`;document.getElementById('ll-back').addEventListener('click',showPracticeModes);return;}
+    const item=cz[czi],sent=item.context||item.word,words=sent.split(/\s+/);
+    let hi=-1;
+    if(item.context&&item.word){const sc=item.word.toLowerCase().replace(/[^a-z']/g,'');hi=words.findIndex(w=>w.toLowerCase().replace(/[^a-z']/g,'')===sc);}
+    if(hi===-1){const ci2=words.map((w,i)=>({w,i})).filter(x=>x.w.replace(/[^a-z']/gi,'').length>3);hi=ci2.length?ci2[Math.floor(Math.random()*ci2.length)].i:Math.floor(Math.random()*words.length);}
+    const hw=words[hi],chw=hw.replace(/[^a-zA-Z']/g,'');
+    const disp=words.map((w,i)=>i===hi?'<span class="ll-cloze-blank">____</span>':w).join(' ');
+    const rem=cz.length-czi;
+    const streak=item.mastery?.clozeStreak||0;
 
-  function renderCloze() {
-    if (clozeIndex >= clozeCards.length) {
-      const pct = clozeScore.total ? Math.round(clozeScore.correct/clozeScore.total*100) : 0;
-      practiceContainer.innerHTML = `<div class="ll-practice-done"><div class="ll-practice-done-icon">✏️</div><div class="ll-practice-done-title">Sesión completada</div><div class="ll-practice-done-text">${clozeScore.correct} de ${clozeScore.total} correctas (${pct}%)</div><div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${pct}%"></div></div><button class="ll-back-btn" id="ll-back-modes">← Volver</button></div>`;
-      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes); return;
-    }
+    P.innerHTML=`<div class="ll-practice-header"><button class="ll-back-btn" id="ll-back">←</button><span class="ll-practice-remaining">${rem} restante${rem!==1?'s':''}</span><span class="ll-practice-score-mini">${czs.c}/${czs.t} · racha: ${streak}/3</span></div>
+      <div class="ll-cloze-card"><div class="ll-cloze-label">Complete the sentence</div><div class="ll-cloze-sentence">${disp}</div>
+      <div class="ll-cloze-ai-hint" id="ll-cz-hint"><span class="ll-popup-loading">Generating hint...</span></div>
+      <div class="ll-cloze-input-row"><input type="text" class="ll-cloze-input" id="ll-cz-in" placeholder="Type the missing word..." autocomplete="off" spellcheck="false"><button class="ll-cloze-check" id="ll-cz-chk">→</button></div>
+      <div class="ll-cloze-actions"><button class="ll-cloze-hint-btn" id="ll-cz-lh" style="display:none">💡 First letter</button><button class="ll-cloze-skip" id="ll-cz-sk">Skip →</button></div>
+      <div class="ll-cloze-result" id="ll-cz-res" style="display:none"></div></div>`;
 
-    const item = clozeCards[clozeIndex];
-    const sentence = item.context || item.word;
-    const words = sentence.split(/\s+/);
+    document.getElementById('ll-back').addEventListener('click',showPracticeModes);
+    const inp=document.getElementById('ll-cz-in');inp.focus();
 
-    // Pick word to hide
-    let hideIndex = -1;
-    if (item.context && item.word) {
-      const savedClean = item.word.toLowerCase().replace(/[^a-z']/g, '');
-      hideIndex = words.findIndex(w => w.toLowerCase().replace(/[^a-z']/g, '') === savedClean);
-    }
-    if (hideIndex === -1) {
-      const contentIndices = words.map((w,i) => ({w,i})).filter(x => x.w.replace(/[^a-z']/gi,'').length > 3);
-      hideIndex = contentIndices.length ? contentIndices[Math.floor(Math.random()*contentIndices.length)].i : Math.floor(Math.random()*words.length);
-    }
-    const hideWord = words[hideIndex];
-    const cleanHideWord = hideWord.replace(/[^a-zA-Z']/g, '');
-    const display = words.map((w,i) => i === hideIndex ? `<span class="ll-cloze-blank">____</span>` : w).join(' ');
-    const remaining = clozeCards.length - clozeIndex;
-
-    practiceContainer.innerHTML = `
-      <div class="ll-practice-header"><button class="ll-back-btn" id="ll-back-modes">←</button><span class="ll-practice-remaining">${remaining} restante${remaining!==1?'s':''}</span><span class="ll-practice-score-mini">${clozeScore.correct}/${clozeScore.total}</span></div>
-      <div class="ll-cloze-card">
-        <div class="ll-cloze-label">Complete the sentence</div>
-        <div class="ll-cloze-sentence">${display}</div>
-        <div class="ll-cloze-ai-hint" id="ll-cloze-ai-hint"><span class="ll-popup-loading">Generating hint...</span></div>
-        <div class="ll-cloze-input-row">
-          <input type="text" class="ll-cloze-input" id="ll-cloze-input" placeholder="Type the missing word..." autocomplete="off" spellcheck="false">
-          <button class="ll-cloze-check" id="ll-cloze-check">→</button>
-        </div>
-        <div class="ll-cloze-actions">
-          <button class="ll-cloze-hint-btn" id="ll-cloze-letter-hint" style="display:none">💡 First letter</button>
-          <button class="ll-cloze-skip" id="ll-cloze-skip">Skip →</button>
-        </div>
-        <div class="ll-cloze-result" id="ll-cloze-result" style="display:none"></div>
-      </div>`;
-
-    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
-    const input = document.getElementById('ll-cloze-input');
-    input.focus();
-
-    // Request AI hint from Groq
-    chrome.runtime.sendMessage({ type: 'CLOZE_HINT', word: cleanHideWord, sentence, targetLang: 'en' }, res => {
-      const hintDiv = document.getElementById('ll-cloze-ai-hint');
-      if (res?.hint) {
-        hintDiv.innerHTML = `<span class="ll-cloze-hint-icon">💡</span> ${res.hint}`;
-        document.getElementById('ll-cloze-letter-hint').style.display = 'inline-block';
-      } else {
-        // Fallback: show first letter hint directly
-        hintDiv.innerHTML = `<span class="ll-cloze-hint-icon">💡</span> First letter: <strong>${cleanHideWord[0].toUpperCase()}</strong>`;
-      }
+    chrome.runtime.sendMessage({type:'CLOZE_HINT',word:chw,sentence:sent,targetLang:'en'},r=>{
+      const h=document.getElementById('ll-cz-hint');
+      if(r?.hint){h.innerHTML=`<span class="ll-cloze-hint-icon">💡</span> ${r.hint}`;document.getElementById('ll-cz-lh').style.display='inline-block';}
+      else h.innerHTML=`<span class="ll-cloze-hint-icon">💡</span> First letter: <strong>${chw[0].toUpperCase()}</strong>`;
     });
+    document.getElementById('ll-cz-lh').addEventListener('click',()=>{document.getElementById('ll-cz-hint').innerHTML+=` — First letter: <strong>${chw[0].toUpperCase()}</strong>`;document.getElementById('ll-cz-lh').style.display='none';});
 
-    document.getElementById('ll-cloze-letter-hint').addEventListener('click', () => {
-      const hintDiv = document.getElementById('ll-cloze-ai-hint');
-      hintDiv.innerHTML += ` — First letter: <strong>${cleanHideWord[0].toUpperCase()}</strong>`;
-      document.getElementById('ll-cloze-letter-hint').style.display = 'none';
-    });
-
-    function checkAnswer() {
-      const answer = input.value.trim().toLowerCase();
-      if (!answer) return;
-      const target = cleanHideWord.toLowerCase();
-      // Accept exact match or close match (missing trailing punctuation, etc.)
-      const correct = answer === target || answer === target.replace(/[^a-z']/g, '');
-      clozeScore.total++; if (correct) clozeScore.correct++;
-      const result = document.getElementById('ll-cloze-result');
-      result.style.display = 'block';
-      result.className = `ll-cloze-result ${correct ? 'll-cloze-correct' : 'll-cloze-wrong'}`;
-      result.innerHTML = correct ? `✓ Correct!` : `✗ The answer was: <strong>${cleanHideWord}</strong>`;
-      input.disabled = true; document.getElementById('ll-cloze-check').disabled = true;
-      setTimeout(() => { clozeIndex++; renderCloze(); }, correct ? 1000 : 2500);
+    function chk(){
+      const ans=inp.value.trim().toLowerCase();if(!ans)return;
+      const correct=ans===chw.toLowerCase()||ans===chw.toLowerCase().replace(/[^a-z']/g,'');
+      czs.t++;if(correct)czs.c++;
+      // Update mastery
+      chrome.runtime.sendMessage({type:'UPDATE_MASTERY',word:item.word,targetLang:item.targetLang,timestamp:item.timestamp,mode:'cloze',correct},r=>{
+        const res=document.getElementById('ll-cz-res');res.style.display='block';
+        res.className=`ll-cloze-result ${correct?'ll-cloze-correct':'ll-cloze-wrong'}`;
+        if(r?.justMastered) res.innerHTML='🏆 ¡Dominada! 3 aciertos seguidos';
+        else if(correct) res.innerHTML=`✓ Correct! (${(r?.mastery?.clozeStreak||0)}/3)`;
+        else res.innerHTML=`✗ The answer was: <strong>${chw}</strong> (racha reiniciada)`;
+        inp.disabled=true;document.getElementById('ll-cz-chk').disabled=true;
+        setTimeout(()=>{czi++;rCZ();},correct?1200:2500);
+      });
     }
-
-    document.getElementById('ll-cloze-check').addEventListener('click', checkAnswer);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer(); });
-    document.getElementById('ll-cloze-skip').addEventListener('click', () => {
-      clozeScore.total++;
-      const result = document.getElementById('ll-cloze-result');
-      result.style.display = 'block'; result.className = 'll-cloze-result ll-cloze-wrong';
-      result.innerHTML = `The answer was: <strong>${cleanHideWord}</strong>`;
-      input.disabled = true;
-      setTimeout(() => { clozeIndex++; renderCloze(); }, 2000);
+    document.getElementById('ll-cz-chk').addEventListener('click',chk);
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter')chk();});
+    document.getElementById('ll-cz-sk').addEventListener('click',()=>{
+      czs.t++;
+      chrome.runtime.sendMessage({type:'UPDATE_MASTERY',word:item.word,targetLang:item.targetLang,timestamp:item.timestamp,mode:'cloze',correct:false},()=>{
+        const res=document.getElementById('ll-cz-res');res.style.display='block';res.className='ll-cloze-result ll-cloze-wrong';
+        res.innerHTML=`The answer was: <strong>${chw}</strong>`;inp.disabled=true;
+        setTimeout(()=>{czi++;rCZ();},2000);
+      });
     });
   }
 
   // ===== REORDER =====
-  let reorderCards = [], reorderIndex = 0, reorderScore = { correct:0, total:0 };
-
-  function startReorder(allWords) {
-    const candidates = allWords.filter(w => w.word.split(/\s+/).length > 3);
-    if (!candidates.length) { practiceContainer.innerHTML = `<div class="ll-practice-empty"><div class="ll-practice-empty-icon">🔀</div><div class="ll-practice-empty-title">No hay frases disponibles</div><button class="ll-back-btn" id="ll-back-modes">← Volver</button></div>`; document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes); return; }
-    reorderCards = shuffle(candidates).slice(0, 10);
-    reorderIndex = 0; reorderScore = { correct:0, total:0 };
-    renderReorder();
+  let ro=[],roi=0,ros={c:0,t:0};
+  function startReorder(aw){
+    const cands=aw.filter(w=>w.word.split(/\s+/).length>3&&!w.mastery?.reorderMastered);
+    if(!cands.length){P.innerHTML='<div class="ll-practice-empty"><div class="ll-practice-empty-icon">🔀</div><div class="ll-practice-empty-title">¡Todas las frases dominadas!</div><button class="ll-back-btn" id="ll-back">← Volver</button></div>';document.getElementById('ll-back').addEventListener('click',showPracticeModes);return;}
+    ro=shuf(cands).slice(0,10);roi=0;ros={c:0,t:0};rRO();
   }
+  function rRO(){
+    if(roi>=ro.length){const p=ros.t?Math.round(ros.c/ros.t*100):0;P.innerHTML=`<div class="ll-practice-done"><div class="ll-practice-done-icon">🔀</div><div class="ll-practice-done-title">Sesión completada</div><div class="ll-practice-done-text">${ros.c} de ${ros.t} correctas (${p}%)</div><div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${p}%"></div></div><button class="ll-back-btn" id="ll-back">← Volver</button></div>`;document.getElementById('ll-back').addEventListener('click',showPracticeModes);return;}
+    const item=ro[roi],ow=item.word.split(/\s+/),sc=shuf(ow);
+    if(sc.join(' ')===ow.join(' ')&&ow.length>2)sc.reverse();
+    const rem=ro.length-roi;let sel=[];
+    const streak=item.mastery?.reorderStreak||0;
 
-  function renderReorder() {
-    if (reorderIndex >= reorderCards.length) {
-      const pct = reorderScore.total ? Math.round(reorderScore.correct/reorderScore.total*100) : 0;
-      practiceContainer.innerHTML = `<div class="ll-practice-done"><div class="ll-practice-done-icon">🔀</div><div class="ll-practice-done-title">Sesión completada</div><div class="ll-practice-done-text">${reorderScore.correct} de ${reorderScore.total} correctas (${pct}%)</div><div class="ll-practice-score-bar"><div class="ll-practice-score-fill" style="width:${pct}%"></div></div><button class="ll-back-btn" id="ll-back-modes">← Volver</button></div>`;
-      document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes); return;
-    }
-    const item = reorderCards[reorderIndex];
-    const originalWords = item.word.split(/\s+/);
-    const scrambled = shuffle(originalWords);
-    if (scrambled.join(' ') === originalWords.join(' ') && originalWords.length > 2) scrambled.reverse();
-    const remaining = reorderCards.length - reorderIndex;
-    let selected = [];
+    P.innerHTML=`<div class="ll-practice-header"><button class="ll-back-btn" id="ll-back">←</button><span class="ll-practice-remaining">${rem} restante${rem!==1?'s':''}</span><span class="ll-practice-score-mini">${ros.c}/${ros.t} · racha: ${streak}/3</span></div>
+      <div class="ll-reorder-card"><div class="ll-reorder-label">Put the words in order</div>${item.translation?`<div class="ll-reorder-hint">${item.translation}</div>`:''}<div class="ll-reorder-answer" id="ll-ro-ans"></div><div class="ll-reorder-words" id="ll-ro-wds"></div><div class="ll-reorder-actions"><button class="ll-reorder-clear" id="ll-ro-clr">Clear</button><button class="ll-reorder-check" id="ll-ro-chk" disabled>Check</button></div><div class="ll-reorder-result" id="ll-ro-res" style="display:none"></div></div>`;
 
-    practiceContainer.innerHTML = `
-      <div class="ll-practice-header"><button class="ll-back-btn" id="ll-back-modes">←</button><span class="ll-practice-remaining">${remaining} restante${remaining!==1?'s':''}</span><span class="ll-practice-score-mini">${reorderScore.correct}/${reorderScore.total}</span></div>
-      <div class="ll-reorder-card">
-        <div class="ll-reorder-label">Put the words in order</div>
-        ${item.translation ? `<div class="ll-reorder-hint">${item.translation}</div>` : ''}
-        <div class="ll-reorder-answer" id="ll-reorder-answer"></div>
-        <div class="ll-reorder-words" id="ll-reorder-words"></div>
-        <div class="ll-reorder-actions"><button class="ll-reorder-clear" id="ll-reorder-clear">Clear</button><button class="ll-reorder-check" id="ll-reorder-check" disabled>Check</button></div>
-        <div class="ll-reorder-result" id="ll-reorder-result" style="display:none"></div>
-      </div>`;
-
-    const wordsC = document.getElementById('ll-reorder-words');
-    const answerC = document.getElementById('ll-reorder-answer');
-    const checkBtn = document.getElementById('ll-reorder-check');
-
-    function rw() { wordsC.innerHTML=''; scrambled.forEach((w,i) => { if(selected.includes(i))return; const c=document.createElement('button'); c.className='ll-word-chip'; c.textContent=w; c.addEventListener('click',()=>{selected.push(i);rw();ra();checkBtn.disabled=selected.length!==originalWords.length;}); wordsC.appendChild(c); }); }
-    function ra() { answerC.innerHTML=''; if(!selected.length){answerC.innerHTML='<span class="ll-reorder-placeholder">Tap words in order...</span>';return;} selected.forEach((idx,pos)=>{const c=document.createElement('button');c.className='ll-word-chip ll-word-chip-selected';c.textContent=scrambled[idx];c.addEventListener('click',()=>{selected=selected.filter((_,p)=>p!==pos);rw();ra();checkBtn.disabled=true;});answerC.appendChild(c);}); }
-    rw(); ra();
-
-    document.getElementById('ll-back-modes').addEventListener('click', showPracticeModes);
-    document.getElementById('ll-reorder-clear').addEventListener('click', () => { selected=[]; rw(); ra(); checkBtn.disabled=true; document.getElementById('ll-reorder-result').style.display='none'; });
-    checkBtn.addEventListener('click', () => {
-      const attempt = selected.map(i => scrambled[i]).join(' ');
-      const correct = attempt === originalWords.join(' ');
-      reorderScore.total++; if(correct) reorderScore.correct++;
-      const result = document.getElementById('ll-reorder-result');
-      result.style.display = 'block';
-      result.className = `ll-reorder-result ${correct ? 'll-cloze-correct' : 'll-cloze-wrong'}`;
-      result.innerHTML = correct ? '✓ Correct!' : `✗ Correct order:<br><strong>${originalWords.join(' ')}</strong>`;
-      setTimeout(() => { reorderIndex++; renderReorder(); }, correct ? 1000 : 3000);
+    const wc=document.getElementById('ll-ro-wds'),ac=document.getElementById('ll-ro-ans'),cb=document.getElementById('ll-ro-chk');
+    function rw(){wc.innerHTML='';sc.forEach((w,i)=>{if(sel.includes(i))return;const c=document.createElement('button');c.className='ll-word-chip';c.textContent=w;c.addEventListener('click',()=>{sel.push(i);rw();ra();cb.disabled=sel.length!==ow.length;});wc.appendChild(c);});}
+    function ra(){ac.innerHTML='';if(!sel.length){ac.innerHTML='<span class="ll-reorder-placeholder">Tap words in order...</span>';return;}sel.forEach((idx,pos)=>{const c=document.createElement('button');c.className='ll-word-chip ll-word-chip-selected';c.textContent=sc[idx];c.addEventListener('click',()=>{sel=sel.filter((_,p)=>p!==pos);rw();ra();cb.disabled=true;});ac.appendChild(c);});}
+    rw();ra();
+    document.getElementById('ll-back').addEventListener('click',showPracticeModes);
+    document.getElementById('ll-ro-clr').addEventListener('click',()=>{sel=[];rw();ra();cb.disabled=true;document.getElementById('ll-ro-res').style.display='none';});
+    cb.addEventListener('click',()=>{
+      const attempt=sel.map(i=>sc[i]).join(' '),correct=attempt===ow.join(' ');
+      ros.t++;if(correct)ros.c++;
+      chrome.runtime.sendMessage({type:'UPDATE_MASTERY',word:item.word,targetLang:item.targetLang,timestamp:item.timestamp,mode:'reorder',correct},r=>{
+        const res=document.getElementById('ll-ro-res');res.style.display='block';
+        res.className=`ll-reorder-result ${correct?'ll-cloze-correct':'ll-cloze-wrong'}`;
+        if(r?.justMastered) res.innerHTML='🏆 ¡Dominada! 3 aciertos seguidos';
+        else if(correct) res.innerHTML=`✓ Correct! (${(r?.mastery?.reorderStreak||0)}/3)`;
+        else res.innerHTML=`✗ Correct order:<br><strong>${ow.join(' ')}</strong> (racha reiniciada)`;
+        setTimeout(()=>{roi++;rRO();},correct?1200:3000);
+      });
     });
   }
 
