@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateTB() { transcriptToolbar.style.display=entryCount>0?'flex':'none'; transcriptCount.textContent=`${entryCount} frases`; }
   document.getElementById('ll-transcript-clear').addEventListener('click', () => { seenTexts.clear();entryCount=0;transcriptList.innerHTML='<p class="ll-empty-state">Transcripción limpiada.</p>';updateTB(); });
   function seekTo(t) { chrome.tabs.query({active:true,currentWindow:true},([tab])=>{if(tab)chrome.tabs.sendMessage(tab.id,{type:'SEEK_TO',timeMs:t*1000});}); }
+  function playSegment(startMs, endMs) {
+    chrome.tabs.query({active:true,currentWindow:true},([tab])=>{
+      if(tab) chrome.tabs.sendMessage(tab.id,{type:'PLAY_SEGMENT',startMs,endMs});
+    });
+  }
   function renderAi(d,a) { if(!a){d.textContent='Configura tu API key';return;} let h=''; if(a.translation)h+=`<div class="ll-vocab-ai-translation">${a.translation}</div>`; if(a.grammar)h+=`<div class="ll-vocab-ai-grammar">${a.grammar}</div>`; if(a.examples?.length){h+='<div class="ll-vocab-ai-examples">';a.examples.forEach(e=>{h+=`<div class="ll-vocab-ai-example"><div class="ll-vocab-ai-sentence">${e.sentence}</div><div class="ll-vocab-ai-trans">${e.translation}</div></div>`;});h+='</div>';} if(a.tip)h+=`<div class="ll-vocab-ai-tip">💡 ${a.tip}</div>`; d.innerHTML=h; }
   function reqExplain(w,c,d) { if(d.style.display==='block'){d.style.display='none';return;} d.style.display='block';d.innerHTML='<span class="ll-vocab-loading">Pensando...</span>'; chrome.runtime.sendMessage({type:'AI_EXPLAIN',word:w,context:c||'',targetLang:'en',nativeLang:'es'},r=>renderAi(d,r?.explanation)); }
   function addTE(target,native,time) {
@@ -176,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="ll-cloze-card"><div class="ll-cloze-label">Complete the sentence</div><div class="ll-cloze-sentence">${disp}</div>
       <div class="ll-cloze-ai-hint" id="ll-cz-hint"><span class="ll-popup-loading">Generating hint...</span></div>
       <div class="ll-cloze-input-row"><input type="text" class="ll-cloze-input" id="ll-cz-in" placeholder="Type the missing word..." autocomplete="off" spellcheck="false"><button class="ll-cloze-check" id="ll-cz-chk">→</button></div>
-      <div class="ll-cloze-actions"><button class="ll-cloze-hint-btn" id="ll-cz-lh" style="display:none">💡 First letter</button><button class="ll-cloze-skip" id="ll-cz-sk">Skip →</button></div>
+      <div class="ll-cloze-actions"><button class="ll-cloze-hint-btn" id="ll-cz-lh" style="display:none">💡 First letter</button><button class="ll-cloze-skip" id="ll-cz-sk">Skip →</button>${item.startMs!=null?'<button class="ll-cloze-listen" id="ll-cz-listen">🔊 Listen</button>':''}</div>
       <div class="ll-cloze-result" id="ll-cz-res" style="display:none"></div></div>`;
 
     document.getElementById('ll-back').addEventListener('click',showPracticeModes);
@@ -206,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.getElementById('ll-cz-chk').addEventListener('click',chk);
     inp.addEventListener('keydown',e=>{if(e.key==='Enter')chk();});
+    if(document.getElementById('ll-cz-listen')){document.getElementById('ll-cz-listen').addEventListener('click',()=>playSegment(item.startMs,item.endMs));}
     document.getElementById('ll-cz-sk').addEventListener('click',()=>{
       czs.t++;
       chrome.runtime.sendMessage({type:'UPDATE_MASTERY',word:item.word,targetLang:item.targetLang,timestamp:item.timestamp,mode:'cloze',correct:false},()=>{
@@ -231,13 +237,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const streak=item.mastery?.reorderStreak||0;
 
     P.innerHTML=`<div class="ll-practice-header"><button class="ll-back-btn" id="ll-back">←</button><span class="ll-practice-remaining">${rem} restante${rem!==1?'s':''}</span><span class="ll-practice-score-mini">${ros.c}/${ros.t} · racha: ${streak}/3</span></div>
-      <div class="ll-reorder-card"><div class="ll-reorder-label">Put the words in order</div>${item.translation?`<div class="ll-reorder-hint">${item.translation}</div>`:''}<div class="ll-reorder-answer" id="ll-ro-ans"></div><div class="ll-reorder-words" id="ll-ro-wds"></div><div class="ll-reorder-actions"><button class="ll-reorder-clear" id="ll-ro-clr">Clear</button><button class="ll-reorder-check" id="ll-ro-chk" disabled>Check</button></div><div class="ll-reorder-result" id="ll-ro-res" style="display:none"></div></div>`;
+      <div class="ll-reorder-card"><div class="ll-reorder-label">Put the words in order</div>${item.translation?`<div class="ll-reorder-hint">${item.translation}</div>`:''}${item.startMs!=null?'<button class="ll-reorder-listen" id="ll-ro-listen">🔊 Listen to phrase</button>':''}<div class="ll-reorder-answer" id="ll-ro-ans"></div><div class="ll-reorder-words" id="ll-ro-wds"></div><div class="ll-reorder-actions"><button class="ll-reorder-clear" id="ll-ro-clr">Clear</button><button class="ll-reorder-check" id="ll-ro-chk" disabled>Check</button></div><div class="ll-reorder-result" id="ll-ro-res" style="display:none"></div></div>`;
 
     const wc=document.getElementById('ll-ro-wds'),ac=document.getElementById('ll-ro-ans'),cb=document.getElementById('ll-ro-chk');
     function rw(){wc.innerHTML='';sc.forEach((w,i)=>{if(sel.includes(i))return;const c=document.createElement('button');c.className='ll-word-chip';c.textContent=w;c.addEventListener('click',()=>{sel.push(i);rw();ra();cb.disabled=sel.length!==ow.length;});wc.appendChild(c);});}
     function ra(){ac.innerHTML='';if(!sel.length){ac.innerHTML='<span class="ll-reorder-placeholder">Tap words in order...</span>';return;}sel.forEach((idx,pos)=>{const c=document.createElement('button');c.className='ll-word-chip ll-word-chip-selected';c.textContent=sc[idx];c.addEventListener('click',()=>{sel=sel.filter((_,p)=>p!==pos);rw();ra();cb.disabled=true;});ac.appendChild(c);});}
     rw();ra();
     document.getElementById('ll-back').addEventListener('click',showPracticeModes);
+    if(document.getElementById('ll-ro-listen')){document.getElementById('ll-ro-listen').addEventListener('click',()=>playSegment(item.startMs,item.endMs));}
     document.getElementById('ll-ro-clr').addEventListener('click',()=>{sel=[];rw();ra();cb.disabled=true;document.getElementById('ll-ro-res').style.display='none';});
     cb.addEventListener('click',()=>{
       const attempt=sel.map(i=>sc[i]).join(' '),correct=attempt===ow.join(' ');

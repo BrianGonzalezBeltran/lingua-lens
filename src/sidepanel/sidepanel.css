@@ -339,3 +339,14 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1219; colo
 }
 .ll-vocab-card:hover .ll-vocab-unpractice { opacity: 1; }
 .ll-vocab-unpractice:hover { background: rgba(251,146,60,0.1); }
+
+/* Listen button in practice modes */
+.ll-cloze-listen, .ll-reorder-listen {
+  background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+  padding: 6px 12px; color: #64748b; font-size: 12px; cursor: pointer;
+  font-family: inherit; transition: all 0.15s;
+}
+.ll-cloze-listen:hover, .ll-reorder-listen:hover {
+  color: #90cdf4; background: rgba(99,179,237,0.1); border-color: rgba(99,179,237,0.3);
+}
+.ll-reorder-listen { margin-bottom: 12px; }

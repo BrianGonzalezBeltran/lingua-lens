@@ -141,6 +141,8 @@
       context: isPhrase ? '' : curCtx,
       targetLang: state.config.targetLang,
       timestamp: Date.now(),
+      startMs: state.currentCaption?.targetCaption?.startMs || null,
+      endMs: state.currentCaption?.targetCaption?.endMs || null,
     }, res => {
       if (res?.success) {
         const btn = popup.querySelector(isPhrase ? '#ll-btn-save-phrase' : '#ll-btn-save');

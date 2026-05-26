@@ -78,6 +78,8 @@
         type: 'SAVE_WORD', word: text,
         translation: state.currentCaption?.native || '',
         context: '', targetLang: state.config.targetLang, timestamp: Date.now(),
+        startMs: state.currentCaption?.targetCaption?.startMs || null,
+        endMs: state.currentCaption?.targetCaption?.endMs || null,
       }, res => {
         if (res?.success) {
           btn.textContent = res.duplicate ? '⚠' : '✅';

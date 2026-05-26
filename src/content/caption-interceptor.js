@@ -55,7 +55,7 @@
         if (targetText !== lastTargetText || nativeText !== lastNativeText) {
           lastTargetText = targetText;
           lastNativeText = nativeText;
-          state.currentCaption = { target: targetText, native: nativeText, time: video.currentTime };
+          state.currentCaption = { target: targetText, native: nativeText, time: video.currentTime, targetCaption: tc };
 
           state.listeners.forEach(fn => fn({
             type: 'CAPTION_TEXT',
@@ -145,6 +145,26 @@
     if (msg.type === 'SEEK_TO') {
       const v = document.querySelector('video.html5-main-video');
       if (v) v.currentTime = msg.timeMs / 1000;
+    }
+    if (msg.type === 'PLAY_SEGMENT') {
+      const v = document.querySelector('video.html5-main-video');
+      if (v && msg.startMs != null && msg.endMs != null) {
+        state._frozen = true;
+        v.currentTime = msg.startMs / 1000;
+        v.play();
+        const checkEnd = () => {
+          if (v.currentTime * 1000 >= msg.endMs) {
+            v.pause();
+            state._frozen = false;
+            v.removeEventListener('timeupdate', checkEnd);
+          }
+        };
+        v.addEventListener('timeupdate', checkEnd);
+        respond({ success: true });
+      } else {
+        respond({ success: false, error: 'No timestamps' });
+      }
+      return true;
     }
   });
 })();
