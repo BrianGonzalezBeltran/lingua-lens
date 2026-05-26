@@ -29,12 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function renderAi(d,a) { if(!a){d.textContent='Configura tu API key';return;} let h=''; if(a.translation)h+=`<div class="ll-vocab-ai-translation">${a.translation}</div>`; if(a.grammar)h+=`<div class="ll-vocab-ai-grammar">${a.grammar}</div>`; if(a.examples?.length){h+='<div class="ll-vocab-ai-examples">';a.examples.forEach(e=>{h+=`<div class="ll-vocab-ai-example"><div class="ll-vocab-ai-sentence">${e.sentence}</div><div class="ll-vocab-ai-trans">${e.translation}</div></div>`;});h+='</div>';} if(a.tip)h+=`<div class="ll-vocab-ai-tip">💡 ${a.tip}</div>`; d.innerHTML=h; }
   function reqExplain(w,c,d) { if(d.style.display==='block'){d.style.display='none';return;} d.style.display='block';d.innerHTML='<span class="ll-vocab-loading">Pensando...</span>'; chrome.runtime.sendMessage({type:'AI_EXPLAIN',word:w,context:c||'',targetLang:'en',nativeLang:'es'},r=>renderAi(d,r?.explanation)); }
-  function addTE(target,native,time) {
+  function addTE(target,native,time,startMs,endMs) {
     if(seenTexts.has(target))return; seenTexts.add(target);entryCount++;
     const e=document.createElement('div');e.className='ll-transcript-entry';
     e.innerHTML=`<div class="ll-transcript-entry-header"><span class="ll-transcript-time">${fmt(time)}</span><button class="ll-transcript-save">⭐</button></div><div class="ll-transcript-target">${target}</div>${native?`<div class="ll-transcript-native">${native}</div>`:''}<div class="ll-transcript-entry-footer"><button class="ll-transcript-explain">🧠</button></div><div class="ll-transcript-ai" style="display:none"></div>`;
     e.addEventListener('click',ev=>{if(!ev.target.closest('.ll-transcript-save')&&!ev.target.closest('.ll-transcript-explain'))seekTo(time);});
-    e.querySelector('.ll-transcript-save').addEventListener('click',ev=>{ev.stopPropagation();const b=ev.target;chrome.runtime.sendMessage({type:'SAVE_WORD',word:target,translation:native||'',context:'',targetLang:'',timestamp:Date.now()},r=>{if(r?.success){b.textContent=r.duplicate?'⚠':'✅';b.disabled=true;setTimeout(()=>{b.textContent='⭐';b.disabled=false;},2000);}});});
+    e.querySelector('.ll-transcript-save').addEventListener('click',ev=>{ev.stopPropagation();const b=ev.target;chrome.runtime.sendMessage({type:'SAVE_WORD',word:target,translation:native||'',context:'',targetLang:'',timestamp:Date.now(),startMs:startMs||null,endMs:endMs||null},r=>{if(r?.success){b.textContent=r.duplicate?'⚠':'✅';b.disabled=true;setTimeout(()=>{b.textContent='⭐';b.disabled=false;},2000);}});});
     e.querySelector('.ll-transcript-explain').addEventListener('click',ev=>{ev.stopPropagation();reqExplain(target,'',e.querySelector('.ll-transcript-ai'));});
     const es=transcriptList.querySelector('.ll-empty-state');if(es)es.remove();
     transcriptList.appendChild(e);if(autoScroll)doAS();updateTB();

@@ -150,7 +150,7 @@ chrome.runtime.onMessage.addListener((msg, _, reply) => {
     case 'GET_DUE_CARDS': getDueCards().then(reply); return true;
     case 'GET_VOCABULARY': chrome.storage.local.get(['vocabulary'], r => reply({ vocabulary: r.vocabulary || [] })); return true;
     case 'EXPORT_VOCABULARY': chrome.storage.local.get(['vocabulary'], r => { const v = r.vocabulary||[]; reply({ csv: toCSV(v), anki: toAnki(v) }); }); return true;
-    case 'CAPTION_FOR_PANEL': chrome.runtime.sendMessage({ type: 'CAPTION_UPDATE', target: msg.target, native: msg.native, time: msg.time }).catch(() => {}); return false;
+    case 'CAPTION_FOR_PANEL': chrome.runtime.sendMessage({ type: 'CAPTION_UPDATE', target: msg.target, native: msg.native, time: msg.time, startMs: msg.startMs, endMs: msg.endMs }).catch(() => {}); return false;
     case 'CHECK_API_KEY': getKey().then(k => reply({ hasKey: !!k })); return true;
     case 'SAVE_API_KEY': chrome.storage.sync.set({ groqApiKey: msg.key }, () => reply({ success: true })); return true;
   }
